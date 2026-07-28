@@ -56,6 +56,7 @@ static char voice_queue[VOICE_QUEUE_MAX][VOICE_TEXT_MAX];
 static volatile uint8_t voice_queue_head = 0;
 static volatile uint8_t voice_queue_tail = 0;
 static volatile uint8_t voice_queue_count = 0;
+static volatile uint8_t voice_playing = 0;
 static volatile uint32_t voice_bat_last_req_time = 0;
 static uint8_t gnss_last_fixed = 0;
 
@@ -101,6 +102,7 @@ static void Pwr_ClearVoiceQueue(void)
     voice_queue_head = 0;
     voice_queue_tail = 0;
     voice_queue_count = 0;
+    voice_playing = 0;
     memset(voice_queue, 0, sizeof(voice_queue));
 }
 
@@ -134,7 +136,10 @@ static uint8_t Pwr_QueueVoiceText(const char *text)
     }
     voice_queue_count++;
 
-    tmos_start_task(Pwr_TaskID, sos_evt, 1);
+    if(voice_playing == 0)
+    {
+        tmos_start_task(Pwr_TaskID, sos_evt, 1);
+    }
     return 1;
 }
 
@@ -721,6 +726,8 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
 
     if(events & sos_evt)
     {
+        voice_playing = 0;
+
         #if VOICE_LOOP_TEST
         Audio_play("≤‚ ‘”Ô“Ù", sizeof"≤‚ ‘”Ô“Ù");
         #else
@@ -738,6 +745,7 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
             OPENAUDIO();
             VOICE_DEBUG_PRINT("[VOICE] play %s\r\n", voice_text);
             Audio_play((uint8_t *)voice_text, strlen(voice_text));
+            voice_playing = 1;
 
             tmos_start_task(Pwr_TaskID,sos_evt,VOICE_PLAY_GAP);
             return (events ^ sos_evt);
