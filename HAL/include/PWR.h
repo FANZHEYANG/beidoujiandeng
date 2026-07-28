@@ -59,6 +59,7 @@ extern void BQ25601_Init(void);
 extern void BATTERY_ADC_Init(void);
 extern uint8_t BATTERY_ADC(void);
 extern void Pwr_RequestBatteryVoice(void);
+extern uint8_t Pwr_RequestVoiceText(const char *text);
 extern void Pwr_Key1Pressed(void);
 extern void Pwr_OnGnssFixUpdate(uint8_t fixed);
 extern void Pwr_OnRdssMessageReceived(uint32_t sender);

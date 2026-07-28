@@ -741,7 +741,7 @@ static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEven
                 Peripheral_LinkTerminated(pEvent);
                 if(ble_soft_off == FALSE)
 {
-    Audio_play("À¶ÑÀ¶Ï¿ª", sizeof"À¶ÑÀ¶Ï¿ª");
+    Pwr_RequestVoiceText("À¶ÑÀ¶Ï¿ª");
 }
 
                 PRINT("Disconnected.. Reason:%x\n", pEvent->linkTerminate.reason);
@@ -760,7 +760,7 @@ static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEven
                 
 if(ble_soft_off == FALSE)
 {
-    Audio_play("À¶ÑÀÒÑÁ¬½Ó", sizeof"À¶ÑÀÒÑÁ¬½Ó");
+    Pwr_RequestVoiceText("À¶ÑÀÒÑÁ¬½Ó");
 }
 
 
@@ -785,7 +785,7 @@ if(ble_soft_off == FALSE)
                 Peripheral_LinkTerminated(pEvent);
                 if(ble_soft_off == FALSE)
 {
-    Audio_play("À¶ÑÀ¶Ï¿ª", sizeof"À¶ÑÀ¶Ï¿ª");
+    Pwr_RequestVoiceText("À¶ÑÀ¶Ï¿ª");
 }
 
                 PRINT("Disconnected.. Reason:%x\n", pEvent->linkTerminate.reason);

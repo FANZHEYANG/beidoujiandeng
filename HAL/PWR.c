@@ -85,6 +85,7 @@ static void UpdateLedFlash(void);
 static void Pwr_ClearVoiceQueue(void);
 static uint8_t Pwr_QueueVoiceText(const char *text);
 static uint8_t Pwr_DequeueVoiceText(char *text);
+
 static void Pwr_StartSosAlarm(void);
 static void Pwr_StopSosAlarm(uint8_t reason);
 static void Pwr_HandleKey1Event(void);
@@ -135,6 +136,11 @@ static uint8_t Pwr_QueueVoiceText(const char *text)
 
     tmos_start_task(Pwr_TaskID, sos_evt, 1);
     return 1;
+}
+
+uint8_t Pwr_RequestVoiceText(const char *text)
+{
+    return Pwr_QueueVoiceText(text);
 }
 
 static uint8_t Pwr_DequeueVoiceText(char *text)
@@ -667,13 +673,11 @@ static void SoftPowerOn(void)
     OPENRD();
     OPENAUDIO();
     DelayMs(500);
-    Audio_play("开机", sizeof"开机");
-    DelayMs(2000);   // 等开机语音播完，再开蓝牙
+    Pwr_RequestVoiceText("开机");
 
     Peripheral_BleOn();
 
     tmos_start_task(Pwr_TaskID, pwr_evt, 1600);
-    tmos_start_task(Pwr_TaskID, sos_evt, 1600);
     tmos_start_task(Pwr_TaskID, key1_evt, KEY1_SCAN_PERIOD);
     tmos_start_task(Bat_TaskID, bat_evt, 1600);
 }

@@ -15,5 +15,7 @@ Peripheral/obj/Peripheral.hex
 *.user
 *.tmp
 *.bak
+__pycache__/
+*.pyc
 Thumbs.db
 .DS_Store
