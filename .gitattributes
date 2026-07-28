@@ -1,0 +1,16 @@
+* text=auto
+
+*.c text eol=lf
+*.h text eol=lf
+*.java text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.mk text eol=lf
+makefile text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.a binary
+*.hex text eol=lf

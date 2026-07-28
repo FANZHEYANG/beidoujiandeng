@@ -1,0 +1,87 @@
+
+
+/******************************************************************************/
+#ifndef __PWR_H
+#define __PWR_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**************************************************************************************************
+ *                                              MACROS
+ **************************************************************************************************/
+/* I2C Mode Definition BQ25601 */
+#define IIC_HOST_MODE     1
+#define IIC_SLAVE_MODE    0
+
+/* Global define BQ25601*/
+#define SIZE            7
+#define MASTER_ADDR     0x42
+
+/* Global define Battery*/
+#define VOLTAGE_DIVIDER_RATIO 2 // 电压分压比
+#define BATTERY_MAX_VOLTAGE 4.2 // 电池满电电压
+#define BATTERY_MIN_VOLTAGE 3.0 // 电池极低电压
+
+/**************************************************************************************************
+ * TYPEDEFS
+ **************************************************************************************************/
+
+/**************************************************************************************************
+ *                                             GLOBAL VARIABLES
+ **************************************************************************************************/
+extern uint8_t Bat_percentage;
+
+extern BOOL RN_SW_Flag;
+extern BOOL RD_SW_Flag;
+extern BOOL SOS_SW_Flag;
+extern BOOL PWR_SW_Flag;
+extern uint8_t PWR_SW_cnt;
+
+extern BOOL RD_TEST_Flag;
+extern BOOL RD_RST_Flag;
+/*********************************************************************
+ * FUNCTIONS
+ */
+//AUDIO
+extern void OPENAUDIO(void);
+extern void CLOSEAUDIO(void);
+//RDSS
+extern void OPENRD(void);
+extern void CLOSERD(void);
+//CM112B RNSS
+extern void OPENRN(void);
+extern void CLOSERN(void);
+//BQ25601
+extern void BQ25601_Init(void);
+//Battery
+extern void BATTERY_ADC_Init(void);
+extern uint8_t BATTERY_ADC(void);
+extern void Pwr_RequestBatteryVoice(void);
+extern void Pwr_Key1Pressed(void);
+extern void Pwr_OnGnssFixUpdate(uint8_t fixed);
+extern void Pwr_OnRdssMessageReceived(uint32_t sender);
+
+
+
+ //event
+#define pwr_evt                  0x0001  
+#define sos_evt                  0x0002  
+#define bat_evt                  0x0004  //电池电量采集
+#define pwroff_evt               0x0008  //电池电量采集
+#define key1_evt                 0x0010  //KEY1短按/长按检测
+#define sos_alarm_evt            0x0020  //SOS报警状态机
+
+//初始化，注册task
+extern void Pwr_init(void);
+extern void Bat_init(void);
+
+/**************************************************************************************************
+**************************************************************************************************/
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

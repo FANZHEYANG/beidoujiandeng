@@ -1,0 +1,19 @@
+.agents/
+.codex/
+
+# Build outputs
+Peripheral/obj/**/*.o
+Peripheral/obj/**/*.d
+Peripheral/obj/**/*.elf
+Peripheral/obj/**/*.map
+Peripheral/obj/**/*.lst
+Peripheral/obj/Peripheral.hex
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.user
+*.tmp
+*.bak
+Thumbs.db
+.DS_Store
