@@ -888,8 +888,8 @@ void Pwr_init(void)
 {
     Pwr_TaskID = TMOS_ProcessEventRegister(Pwr_ProcessEvent);//注册任务，返回task_id
 
+    Pwr_RequestVoiceText("开机");
     tmos_start_task(Pwr_TaskID,pwr_evt,1600);//开始任务
-    tmos_start_task(Pwr_TaskID,sos_evt,1600);//开始任务
     tmos_start_task(Pwr_TaskID,key1_evt,KEY1_SCAN_PERIOD);//KEY1短按/长按检测
     tmos_start_task(Pwr_TaskID,pwroff_evt,1600);//开始任务
 }

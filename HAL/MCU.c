@@ -293,10 +293,6 @@ void XT90_Init()
 
     //UART0_SendString((uint8_t *)strCCPTL, sizeof(strCCPTL));//设置为扩展协议
 
-    OPENAUDIO();
-    DelayMs(500) ;//稳定后播放
-    Audio_play("开机", sizeof"开机");
-   //CLOSEAUDIO();
 
     
     
