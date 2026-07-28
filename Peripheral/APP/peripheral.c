@@ -46,6 +46,8 @@
 // PHY update delay
 #define SBP_PHY_UPDATE_DELAY                 2400
 
+#define BLE_RECONNECT_SUPPRESS_PERIOD       MS1_TO_SYSTEM_TIME(2000)
+
 // What is the advertising interval when device is discoverable (units of 625us, 80=50ms)
 #define DEFAULT_ADVERTISING_INTERVAL         80
 
@@ -69,6 +71,7 @@
 #define WCH_COMPANY_ID                       0x07D7
 
 static uint8_t ble_soft_off = FALSE;
+static uint8_t ble_disconnect_voice_pending = FALSE;
 
 
 
@@ -174,6 +177,8 @@ static uint16_t peripheralMTU = 247;
  */
 static void Peripheral_ProcessTMOSMsg(tmos_event_hdr_t *pMsg);
 static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent);
+static void peripheralScheduleDisconnectVoice(void);
+static void peripheralHandleConnectedVoice(void);
 static void performPeriodicTask(void);
 static void simpleProfileChangeCB(uint8_t paramID, uint8_t *pValue, uint16_t len);
 static void peripheralParamUpdateCB(uint16_t connHandle, uint16_t connInterval,
@@ -411,6 +416,33 @@ static void peripheralInitConnItem(peripheralConnItem_t *peripheralConnList)
     peripheralConnList->connTimeout = 0;
 }
 
+static void peripheralScheduleDisconnectVoice(void)
+{
+    if(ble_soft_off != FALSE)
+    {
+        return;
+    }
+
+    ble_disconnect_voice_pending = TRUE;
+    tmos_start_task(Peripheral_TaskID, SBP_BLE_DISCONNECT_VOICE_EVT, BLE_RECONNECT_SUPPRESS_PERIOD);
+}
+
+static void peripheralHandleConnectedVoice(void)
+{
+    if(ble_soft_off != FALSE)
+    {
+        return;
+    }
+
+    if(ble_disconnect_voice_pending != FALSE)
+    {
+        ble_disconnect_voice_pending = FALSE;
+        tmos_stop_task(Peripheral_TaskID, SBP_BLE_DISCONNECT_VOICE_EVT);
+        return;
+    }
+
+    Pwr_RequestVoiceText("蓝牙已连接");
+}
 /*********************************************************************
  * @fn      Peripheral_ProcessEvent
  *
@@ -498,6 +530,19 @@ uint16_t Peripheral_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ SBP_READ_RSSI_EVT);
     }
 
+    if(events & SBP_BLE_DISCONNECT_VOICE_EVT)
+    {
+        if(ble_disconnect_voice_pending != FALSE)
+        {
+            ble_disconnect_voice_pending = FALSE;
+            if((ble_soft_off == FALSE) && (peripheralConnList.connHandle == GAP_CONNHANDLE_INIT))
+            {
+                Pwr_RequestVoiceText("蓝牙断开");
+            }
+        }
+
+        return (events ^ SBP_BLE_DISCONNECT_VOICE_EVT);
+    }
     // Discard unknown events
     return 0;
 }
@@ -739,10 +784,7 @@ static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEven
             if(pEvent->gap.opcode == GAP_LINK_TERMINATED_EVENT)
             {
                 Peripheral_LinkTerminated(pEvent);
-                if(ble_soft_off == FALSE)
-{
-    Pwr_RequestVoiceText("蓝牙断开");
-}
+                peripheralScheduleDisconnectVoice();
 
                 PRINT("Disconnected.. Reason:%x\n", pEvent->linkTerminate.reason);
                 PRINT("Advertising..\n");
@@ -757,12 +799,7 @@ static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEven
             if(pEvent->gap.opcode == GAP_LINK_ESTABLISHED_EVENT)
             {
                 Peripheral_LinkEstablished(pEvent);
-                
-if(ble_soft_off == FALSE)
-{
-    Pwr_RequestVoiceText("蓝牙已连接");
-}
-
+                peripheralHandleConnectedVoice();
 
                 PRINT("Connected..\n");
             }
@@ -783,10 +820,7 @@ if(ble_soft_off == FALSE)
             else if(pEvent->gap.opcode == GAP_LINK_TERMINATED_EVENT)
             {
                 Peripheral_LinkTerminated(pEvent);
-                if(ble_soft_off == FALSE)
-{
-    Pwr_RequestVoiceText("蓝牙断开");
-}
+                peripheralScheduleDisconnectVoice();
 
                 PRINT("Disconnected.. Reason:%x\n", pEvent->linkTerminate.reason);
             }
@@ -1481,6 +1515,8 @@ void Peripheral_BleOff(void)
     uint8_t advertising_enable = FALSE;
 
     ble_soft_off = TRUE;
+    ble_disconnect_voice_pending = FALSE;
+    tmos_stop_task(Peripheral_TaskID, SBP_BLE_DISCONNECT_VOICE_EVT);
 
     GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &advertising_enable);
 

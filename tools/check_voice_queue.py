@@ -18,11 +18,17 @@ def main():
     pwr_h = read_text("HAL/include/PWR.h")
     pwr_c = read_text("HAL/PWR.c")
     mcu_c = read_text("HAL/MCU.c")
+    peripheral_h = read_text("Peripheral/APP/include/peripheral.h")
     peripheral_c = read_text("Peripheral/APP/peripheral.c")
     soft_power_on = pwr_c[pwr_c.index("static void SoftPowerOn"):pwr_c.index("//PWR ADC")]
     pwr_init = pwr_c[pwr_c.index("void Pwr_init"):pwr_c.index("//BAT ADC")]
     queue_voice = pwr_c[pwr_c.index("static uint8_t Pwr_QueueVoiceText"):pwr_c.index("uint8_t Pwr_RequestVoiceText")]
     sos_event = pwr_c[pwr_c.index("if(events & sos_evt)"):pwr_c.index("if(events & key1_evt)")]
+    peripheral_state_start = peripheral_c.rindex("static void peripheralStateNotificationCB")
+    peripheral_state = peripheral_c[
+        peripheral_state_start:
+        peripheral_c.index("static void performPeriodicTask", peripheral_state_start)
+    ]
 
     assert "Pwr_RequestVoiceText" in pwr_h, "PWR.h must expose the voice queue API"
     assert "uint8_t Pwr_RequestVoiceText" in pwr_c, "PWR.c must implement the voice queue API"
@@ -37,7 +43,15 @@ def main():
     assert 'Audio_play("' not in soft_power_on, "startup voice must not bypass the voice queue"
     assert "Pwr_RequestVoiceText(" in soft_power_on, "startup voice must be queued first"
     assert "Audio_play(" not in peripheral_c, "peripheral.c must not bypass the voice queue"
-    assert peripheral_c.count("Pwr_RequestVoiceText(") >= 2, "BLE connect/disconnect voices must be queued"
+    assert "SBP_BLE_DISCONNECT_VOICE_EVT" in peripheral_h, "BLE disconnect voice must use a delayed event"
+    assert "BLE_RECONNECT_SUPPRESS_PERIOD" in peripheral_c, "BLE reconnect suppression delay must be named"
+    assert "MS1_TO_SYSTEM_TIME(2000)" in peripheral_c, "short BLE reconnects under 2 seconds must be suppressed"
+    assert "ble_disconnect_voice_pending" in peripheral_c, "BLE disconnect voice must track a pending confirmation"
+    assert "peripheralScheduleDisconnectVoice" in peripheral_c, "BLE disconnect voice must be scheduled, not played immediately"
+    assert "peripheralHandleConnectedVoice" in peripheral_c, "BLE connected voice must be filtered through reconnect logic"
+    assert "Pwr_RequestVoiceText(" not in peripheral_state, "BLE state callback must not queue voice before debounce"
+    assert "peripheralScheduleDisconnectVoice();" in peripheral_state, "disconnect callback must schedule delayed voice"
+    assert "peripheralHandleConnectedVoice();" in peripheral_state, "connect callback must use debounce helper"
 
 
 if __name__ == "__main__":
