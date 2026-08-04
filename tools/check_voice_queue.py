@@ -23,6 +23,7 @@ def main():
     peripheral_c = read_text("Peripheral/APP/peripheral.c")
     gattprofile_c = read_text("Peripheral/Profile/gattprofile.c")
     gattprofile_h = read_text("Peripheral/Profile/include/gattprofile.h")
+    soft_power_off = pwr_c[pwr_c.index("static void SoftPowerOff"):pwr_c.index("void Pwr_RequestAutoPowerOff")]
     soft_power_on = pwr_c[pwr_c.index("static void SoftPowerOn"):pwr_c.index("//PWR ADC")]
     pwr_init = pwr_c[pwr_c.index("void Pwr_init"):pwr_c.index("//BAT ADC")]
     queue_voice = pwr_c[pwr_c.index("static uint8_t Pwr_QueueVoiceText"):pwr_c.index("uint8_t Pwr_RequestVoiceText")]
@@ -201,6 +202,16 @@ def main():
     assert "if(frequency_count_down != 0)" in pwr_c, "location SMS must respect RDSS frequency countdown"
     assert "Pwr_SetLocationReportInterval(interval_sec);" in peripheral_c, "APP 0x4006 writes must update the location timer"
     assert "Pwr_RequestLocationReport();" in peripheral_c, "APP 0x4007 writes must trigger direct location sending"
+    assert "key2_wait_release" in pwr_c, "KEY2 long press must lock out repeat power toggles until release"
+    assert "KEY2_RELEASE_STABLE_COUNT" in pwr_c, "KEY2 release must be stable before accepting a new power long press"
+    assert "if(key2_wait_release)" in pwr_process, "power task must check the KEY2 release lock before handling new interrupts"
+    assert "PWR_SW_Flag = FALSE;" in pwr_process[pwr_process.index("if(key2_wait_release)"):], "KEY2 release lock must discard bounce interrupts"
+    assert "key2_wait_release = 1;" in pwr_process, "KEY2 long press must arm the release lock after power toggle"
+    assert "key2_release_count++" in pwr_process, "KEY2 release lock must count stable released samples"
+    assert "key2_wait_release = 0;" in pwr_process, "KEY2 release lock must clear only after stable release"
+    assert "key2_release_count = 0;" in soft_power_on, "soft power-on must reset KEY2 release debounce state"
+    assert "if(soft_power_off != 0)" in soft_power_off, "soft power-off must ignore duplicate off requests"
+    assert "if(soft_power_off == 0)" in soft_power_on, "soft power-on must ignore duplicate on requests"
 
 
 if __name__ == "__main__":

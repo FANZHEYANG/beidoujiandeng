@@ -82,7 +82,10 @@ static uint8_t blink_phase = 0;
 static uint8_t key2_checking = 0;
 static uint8_t key2_long_done = 0;
 static uint16_t key2_hold_count = 0;
+static uint8_t key2_wait_release = 0;
+static uint8_t key2_release_count = 0;
 #define KEY2_LONG_PRESS_COUNT 48
+#define KEY2_RELEASE_STABLE_COUNT 2
 
 static uint8_t soft_power_off = 0;  
 
@@ -712,6 +715,11 @@ uint8_t BATTERY_ADC(void)
 
 static void SoftPowerOff(void)
 {
+    if(soft_power_off != 0)
+    {
+        return;
+    }
+
     soft_power_off = 1;
     Pwr_ClearVoiceQueue();
     voice_bat_last_req_time = 0;
@@ -719,6 +727,11 @@ static void SoftPowerOff(void)
     key1_checking = 0;
     key1_long_done = 0;
     key1_hold_count = 0;
+    key2_checking = 0;
+    key2_long_done = 0;
+    key2_hold_count = 0;
+    key2_wait_release = 0;
+    key2_release_count = 0;
     gnss_last_fixed = 0;
     Pwr_StopSosAlarm(SOS_EXIT_POWER);
     location_report_interval_sec = 0;
@@ -752,6 +765,11 @@ void Pwr_RequestAutoPowerOff(void)
 }
 static void SoftPowerOn(void)
 {
+    if(soft_power_off == 0)
+    {
+        return;
+    }
+
     soft_power_off = 0;
     Pwr_ClearVoiceQueue();
     voice_bat_last_req_time = 0;
@@ -759,6 +777,11 @@ static void SoftPowerOn(void)
     key1_checking = 0;
     key1_long_done = 0;
     key1_hold_count = 0;
+    key2_checking = 0;
+    key2_long_done = 0;
+    key2_hold_count = 0;
+    key2_wait_release = 0;
+    key2_release_count = 0;
     gnss_last_fixed = 0;
     location_report_interval_sec = 0;
     tmos_stop_task(Pwr_TaskID, location_report_evt);
@@ -880,64 +903,98 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
     }
     if(events & pwroff_evt)
     {
-        if(PWR_SW_Flag == TRUE)
-{
-    PWR_SW_Flag = FALSE;
-    key2_checking = 1;
-    key2_long_done = 0;
-    key2_hold_count = 0;
-}
-
-if(key2_checking)
-{
-    if(HalKeyRead() == HAL_KEY_SW_2)
-    {
-        if(key2_hold_count < KEY2_LONG_PRESS_COUNT)
+        if(key2_wait_release)
         {
-            key2_hold_count++;
-        }
-
-        if((key2_hold_count >= KEY2_LONG_PRESS_COUNT) && (key2_long_done == 0))
-        {
-            key2_long_done = 1;
+            PWR_SW_Flag = FALSE;
             key2_checking = 0;
+            key2_long_done = 0;
+            key2_hold_count = 0;
 
-            if(soft_power_off == 0)
+            if(HalKeyRead() == HAL_KEY_SW_2)
             {
-                SoftPowerOff();
+                key2_release_count = 0;
             }
             else
             {
-                SoftPowerOn();
+                if(key2_release_count < KEY2_RELEASE_STABLE_COUNT)
+                {
+                    key2_release_count++;
+                }
+
+                if(key2_release_count >= KEY2_RELEASE_STABLE_COUNT)
+                {
+                    key2_wait_release = 0;
+                    key2_release_count = 0;
+                }
             }
         }
-    }
-    else
-    {
-        if(key2_long_done == 0)
+        else
         {
-            if(soft_power_off == 0)
+            if(PWR_SW_Flag == TRUE)
             {
-                led_flash_enable = !led_flash_enable;
-        
-                if(led_flash_enable == 0)
+                PWR_SW_Flag = FALSE;
+                key2_checking = 1;
+                key2_long_done = 0;
+                key2_hold_count = 0;
+            }
+
+            if(key2_checking)
+            {
+                if(HalKeyRead() == HAL_KEY_SW_2)
                 {
-                    led_index = 0;
-                    blink_phase = 0;
-                    HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
+                    if(key2_hold_count < KEY2_LONG_PRESS_COUNT)
+                    {
+                        key2_hold_count++;
+                    }
+
+                    if((key2_hold_count >= KEY2_LONG_PRESS_COUNT) && (key2_long_done == 0))
+                    {
+                        key2_long_done = 1;
+                        key2_checking = 0;
+                        key2_hold_count = 0;
+
+                        if(soft_power_off == 0)
+                        {
+                            SoftPowerOff();
+                        }
+                        else
+                        {
+                            SoftPowerOn();
+                        }
+
+                        key2_wait_release = 1;
+                        key2_release_count = 0;
+                        PWR_SW_Flag = FALSE;
+                    }
+                }
+                else
+                {
+                    if(key2_long_done == 0)
+                    {
+                        if(soft_power_off == 0)
+                        {
+                            led_flash_enable = !led_flash_enable;
+
+                            if(led_flash_enable == 0)
+                            {
+                                led_index = 0;
+                                blink_phase = 0;
+                                HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
+                            }
+                        }
+                    }
+
+                    key2_checking = 0;
+                    key2_hold_count = 0;
+                    key2_long_done = 0;
                 }
             }
         }
 
-        key2_checking = 0;
-        key2_hold_count = 0;
-        key2_long_done = 0;
-    }
-}
-if(led_flash_enable)
-{
-    UpdateLedFlash();
-}
+        if(led_flash_enable)
+        {
+            UpdateLedFlash();
+        }
         // switch(PWR_SW_cnt)
         // {
         //     case 0x01: 
