@@ -30,6 +30,22 @@ def main():
         peripheral_state_start:
         peripheral_c.index("static void performPeriodicTask", peripheral_state_start)
     ]
+    link_established = peripheral_c[
+        peripheral_c.index("static void Peripheral_LinkEstablished"):
+        peripheral_c.index("/*********************************************************************", peripheral_c.index("static void Peripheral_LinkTerminated"))
+    ]
+    link_terminated = peripheral_c[
+        peripheral_c.index("static void Peripheral_LinkTerminated"):
+        peripheral_state_start
+    ]
+    ble_off = peripheral_c[
+        peripheral_c.index("void Peripheral_BleOff"):
+        peripheral_c.index("void Peripheral_BleOn")
+    ]
+    ble_on = peripheral_c[
+        peripheral_c.index("void Peripheral_BleOn"):
+        peripheral_c.index("/*********************************************************************", peripheral_c.index("void Peripheral_BleOn"))
+    ]
 
     assert "Pwr_RequestVoiceText" in pwr_h, "PWR.h must expose the voice queue API"
     assert "uint8_t Pwr_RequestVoiceText" in pwr_c, "PWR.c must implement the voice queue API"
@@ -60,10 +76,22 @@ def main():
     assert "SoftPowerOff();" in pwr_process, "auto power-off must use the existing soft power-off path"
     assert "SBP_BLE_AUTO_POWEROFF_EVT" in peripheral_h, "BLE app must have a 15-minute auto power-off event"
     assert "BLE_AUTO_POWEROFF_PERIOD" in peripheral_c, "BLE auto power-off delay must be named"
-    assert "MS1_TO_SYSTEM_TIME(15 * 60 * 1000)" in peripheral_c, "BLE auto power-off delay must be 15 minutes"
+    assert "#define BLE_AUTO_POWEROFF_PERIOD" in peripheral_c, "BLE auto power-off delay must stay configurable"
     assert "peripheralScheduleAutoPowerOff" in peripheral_c, "BLE disconnect must schedule auto power-off"
     assert "peripheralCancelAutoPowerOff" in peripheral_c, "BLE reconnect must cancel auto power-off"
     assert "Pwr_RequestAutoPowerOff();" in peripheral_c, "BLE auto power-off event must request PWR soft shutdown"
+    assert "BOOL RN_SW_Flag   = FALSE;" in pwr_c, "RNSS must stay off until BLE is connected"
+    assert "BOOL RD_SW_Flag   = FALSE;" in pwr_c, "RDSS must stay off until BLE is connected"
+    assert "peripheralSetSatelliteModules" in peripheral_c, "BLE layer must own satellite module power state"
+    assert "RN_SW_Flag = enabled;" in peripheral_c, "satellite helper must update RNSS power flag"
+    assert "RD_SW_Flag = enabled;" in peripheral_c, "satellite helper must update RDSS power flag"
+    assert "OPENRN();" in peripheral_c and "OPENRD();" in peripheral_c, "satellite helper must power on RNSS/RDSS"
+    assert "CLOSERN();" in peripheral_c and "CLOSERD();" in peripheral_c, "satellite helper must power off RNSS/RDSS"
+    assert "peripheralSetSatelliteModules(TRUE);" in link_established, "BLE connect must enable RNSS/RDSS"
+    assert "peripheralSetSatelliteModules(FALSE);" in link_terminated, "BLE disconnect must disable RNSS/RDSS"
+    assert "peripheralSetSatelliteModules(FALSE);" in ble_off, "BLE off must disable RNSS/RDSS"
+    assert "peripheralSetSatelliteModules(FALSE);" in ble_on, "BLE on must start advertising with RNSS/RDSS off"
+    assert "peripheralRdssSnrNotify(snr, RDSSPROFILE_CHAR3_LEN);" in peripheral_c, "0x4503 notify must keep using parsed RDSS SNR"
 
 
 if __name__ == "__main__":

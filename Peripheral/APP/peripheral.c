@@ -47,7 +47,7 @@
 #define SBP_PHY_UPDATE_DELAY                 2400
 
 #define BLE_RECONNECT_SUPPRESS_PERIOD       MS1_TO_SYSTEM_TIME(2000)
-#define BLE_AUTO_POWEROFF_PERIOD           MS1_TO_SYSTEM_TIME(15 * 60 * 1000)
+#define BLE_AUTO_POWEROFF_PERIOD           MS1_TO_SYSTEM_TIME(1 * 60 * 1000)//待机时间
 
 // What is the advertising interval when device is discoverable (units of 625us, 80=50ms)
 #define DEFAULT_ADVERTISING_INTERVAL         80
@@ -182,6 +182,7 @@ static void peripheralScheduleDisconnectVoice(void);
 static void peripheralHandleConnectedVoice(void);
 static void peripheralScheduleAutoPowerOff(void);
 static void peripheralCancelAutoPowerOff(void);
+static void peripheralSetSatelliteModules(BOOL enabled);
 static void performPeriodicTask(void);
 static void simpleProfileChangeCB(uint8_t paramID, uint8_t *pValue, uint16_t len);
 static void peripheralParamUpdateCB(uint16_t connHandle, uint16_t connInterval,
@@ -656,6 +657,23 @@ static void Peripheral_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
     }
 }
 
+static void peripheralSetSatelliteModules(BOOL enabled)
+{
+    RN_SW_Flag = enabled;
+    RD_SW_Flag = enabled;
+
+    if(enabled == TRUE)
+    {
+        OPENRN();
+        OPENRD();
+    }
+    else
+    {
+        CLOSERN();
+        CLOSERD();
+    }
+}
+
 /*********************************************************************
  * @fn      Peripheral_LinkEstablished
  * 当连接建立时，中断会触发Peripheral_LinkEstablished函数
@@ -686,6 +704,7 @@ static void Peripheral_LinkEstablished(gapRoleEvent_t *pEvent)
         peripheralConnList.connInterval = event->connInterval;
         peripheralConnList.connSlaveLatency = event->connLatency;
         peripheralConnList.connTimeout = event->connTimeout;
+        peripheralSetSatelliteModules(TRUE);
         peripheralMTU = 247;
         // Set timer for periodic event
         tmos_start_task(Peripheral_TaskID, SBP_PERIODIC_EVT, SBP_PERIODIC_EVT_PERIOD);
@@ -721,6 +740,7 @@ static void Peripheral_LinkTerminated(gapRoleEvent_t *pEvent)
         peripheralConnList.connTimeout = 0;
         tmos_stop_task(Peripheral_TaskID, SBP_PERIODIC_EVT);
         tmos_stop_task(Peripheral_TaskID, SBP_READ_RSSI_EVT);
+        peripheralSetSatelliteModules(FALSE);
 
         // Restart advertising
         
@@ -1548,6 +1568,7 @@ void Peripheral_BleOff(void)
     ble_disconnect_voice_pending = FALSE;
     tmos_stop_task(Peripheral_TaskID, SBP_BLE_DISCONNECT_VOICE_EVT);
     peripheralCancelAutoPowerOff();
+    peripheralSetSatelliteModules(FALSE);
 
     GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &advertising_enable);
 
@@ -1566,6 +1587,7 @@ void Peripheral_BleOn(void)
     uint8_t advertising_enable = TRUE;
 
     ble_soft_off = FALSE;
+    peripheralSetSatelliteModules(FALSE);
     GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &advertising_enable);
 }
 /*********************************************************************

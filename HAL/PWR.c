@@ -11,8 +11,8 @@
 signed short RoughCalib_Value = 0; // ADC粗调偏差值
 uint8_t Bat_percentage = 0;
 
-BOOL RN_SW_Flag   = TRUE;//默认关闭
-BOOL RD_SW_Flag   = TRUE;
+BOOL RN_SW_Flag   = FALSE;//默认关闭
+BOOL RD_SW_Flag   = FALSE;
 BOOL SOS_SW_Flag  = FALSE;
 BOOL PWR_SW_Flag  = FALSE;
 uint8_t PWR_SW_cnt = 0;
@@ -681,8 +681,10 @@ static void SoftPowerOn(void)
     gnss_last_fixed = 0;
     SOS_SW_Flag = FALSE;
 
-    OPENRN();
-    OPENRD();
+    RN_SW_Flag = FALSE;
+    RD_SW_Flag = FALSE;
+    CLOSERN();
+    CLOSERD();
     OPENAUDIO();
     DelayMs(500);
     Pwr_RequestVoiceText("开机");
