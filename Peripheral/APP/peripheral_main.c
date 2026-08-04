@@ -85,8 +85,9 @@ int main(void)
     //+3.3V_DM_EN£¨RNSS DM229 Power£©
     GPIOB_ModeCfg( GPIO_Pin_18 , GPIO_ModeOut_PP_5mA );
 
-    GPIOB_SetBits(GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_16|GPIO_Pin_18);
-    GPIOA_SetBits(GPIO_Pin_15);
+    GPIOB_SetBits(GPIO_Pin_16);
+    GPIOB_ResetBits(GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_18);
+    GPIOA_ResetBits(GPIO_Pin_15);
     
     DelayMs(100);
     

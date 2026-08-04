@@ -21,6 +21,7 @@ def main():
     mcu_c = read_text("HAL/MCU.c")
     key_c = read_text("HAL/KEY.c")
     peripheral_h = read_text("Peripheral/APP/include/peripheral.h")
+    peripheral_main_c = read_text("Peripheral/APP/peripheral_main.c")
     peripheral_c = read_text("Peripheral/APP/peripheral.c")
     gattprofile_c = read_text("Peripheral/Profile/gattprofile.c")
     gattprofile_h = read_text("Peripheral/Profile/include/gattprofile.h")
@@ -50,6 +51,11 @@ def main():
     ble_on = peripheral_c[
         peripheral_c.index("void Peripheral_BleOn"):
         peripheral_c.index("/*********************************************************************", peripheral_c.index("void Peripheral_BleOn"))
+    ]
+    satellite_helper_start = peripheral_c.rindex("static void peripheralSetSatelliteModules")
+    satellite_helper = peripheral_c[
+        satellite_helper_start:
+        peripheral_c.index("/*********************************************************************", satellite_helper_start)
     ]
     periodic_task_start = peripheral_c.rindex("static void performPeriodicTask")
     periodic_task = peripheral_c[
@@ -84,6 +90,11 @@ def main():
     sos_queue = pwr_c[
         sos_queue_start:
         pwr_c.index("static void Pwr_StartSosAlarm", sos_queue_start)
+    ]
+    location_queue_start = pwr_c.index("static uint8_t Pwr_QueueLocationMessage")
+    location_queue = pwr_c[
+        location_queue_start:
+        pwr_c.index("void Pwr_SetLocationReportInterval", location_queue_start)
     ]
     clear_gps_fields = decode_c[
         decode_c.index("static void clearGpsParsedFields"):
@@ -124,13 +135,25 @@ def main():
     assert "peripheralCancelAutoPowerOff" in peripheral_c, "BLE reconnect must cancel auto power-off"
     assert "Pwr_RequestAutoPowerOff();" in peripheral_c, "BLE auto power-off event must request PWR soft shutdown"
     assert "BOOL RN_SW_Flag   = FALSE;" in pwr_c, "RNSS must stay off until BLE is connected"
-    assert "BOOL RD_SW_Flag   = FALSE;" in pwr_c, "RDSS must stay off until BLE is connected"
+    assert "BOOL RD_SW_Flag   = FALSE;" in pwr_c, "RDSS must stay off until a message is sent"
+    assert "GPIOB_SetBits(GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_16|GPIO_Pin_18)" not in peripheral_main_c, "cold startup must not power RNSS/RDSS together"
+    assert "GPIOB_SetBits(GPIO_Pin_16);" in peripheral_main_c, "cold startup may keep audio power initialized"
+    assert "GPIOB_ResetBits(GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_18);" in peripheral_main_c, "cold startup must keep RNSS/RDSS module rails off"
+    assert "GPIOA_ResetBits(GPIO_Pin_15);" in peripheral_main_c, "cold startup must keep RNSS AT enable off"
     assert "peripheralSetSatelliteModules" in peripheral_c, "BLE layer must own satellite module power state"
-    assert "RN_SW_Flag = enabled;" in peripheral_c, "satellite helper must update RNSS power flag"
-    assert "RD_SW_Flag = enabled;" in peripheral_c, "satellite helper must update RDSS power flag"
-    assert "OPENRN();" in peripheral_c and "OPENRD();" in peripheral_c, "satellite helper must power on RNSS/RDSS"
-    assert "CLOSERN();" in peripheral_c and "CLOSERD();" in peripheral_c, "satellite helper must power off RNSS/RDSS"
-    assert "peripheralSetSatelliteModules(TRUE);" in link_established, "BLE connect must enable RNSS/RDSS"
+    assert "RN_SW_Flag = enabled;" in satellite_helper, "satellite helper must update RNSS power flag"
+    assert "RD_SW_Flag = FALSE;" in satellite_helper, "satellite helper must leave RDSS off on BLE connect"
+    assert "OPENRN();" in satellite_helper, "BLE connect must power on RNSS"
+    assert "OPENRD();" not in satellite_helper, "BLE connect must not power on RDSS"
+    assert "CLOSERN();" in satellite_helper and "CLOSERD();" in satellite_helper, "satellite helper must power off RNSS/RDSS"
+    assert "Pwr_EnableRdssForSend" in pwr_h, "PWR.h must expose a send-time RDSS enable API"
+    assert "void Pwr_EnableRdssForSend" in pwr_c, "PWR.c must implement the send-time RDSS enable API"
+    rdss_enable = pwr_c[pwr_c.index("void Pwr_EnableRdssForSend"):pwr_c.index("void CLOSERD")]
+    assert "RD_SW_Flag = TRUE;" in rdss_enable, "send-time RDSS enable must latch RDSS power on"
+    assert "OPENRD();" in rdss_enable, "send-time RDSS enable must power the module immediately"
+    assert "Pwr_EnableRdssForSend();" in sos_queue, "SOS sends must enable RDSS before queueing TX"
+    assert "Pwr_EnableRdssForSend();" in location_queue, "location sends must enable RDSS before queueing TX"
+    assert "peripheralSetSatelliteModules(TRUE);" in link_established, "BLE connect must enable RNSS through helper"
     assert "peripheralSetSatelliteModules(FALSE);" in link_terminated, "BLE disconnect must disable RNSS/RDSS"
     assert "peripheralSetSatelliteModules(FALSE);" in ble_off, "BLE off must disable RNSS/RDSS"
     assert "peripheralSetSatelliteModules(FALSE);" in ble_on, "BLE on must start advertising with RNSS/RDSS off"
@@ -165,6 +188,7 @@ def main():
     assert "requested_payload_len" in rdss_write_4504, "4504 writes must compare requested and accepted payload lengths"
     assert "Tx_ack.reason = RDSS_ACK_REASON_PAYLOAD_TOO_LONG;" in rdss_write_4504, "oversized 4504 writes must report failure to APP"
     assert "RD_tx_ack_dirty = 1;" in rdss_write_4504, "local 4504 failures must trigger 4505 notify"
+    assert "Pwr_EnableRdssForSend();" in rdss_write_4504, "valid 4504 writes must enable RDSS before queueing TX"
     assert "RD_txflag = true;" in rdss_write_4504, "valid 4504 writes must still queue DM229 transmission"
     assert "Msg_tx.payload_len = Rdss_SanitizePayloadLen" in rdss_process, "DM229 transmit path must keep payload on a safe boundary"
     assert "Rdss_ClearMsgRx();" in rdss_process, "BDMXX parsing must clear stale inbound SMS fields"

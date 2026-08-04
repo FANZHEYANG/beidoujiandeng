@@ -319,6 +319,7 @@ static uint8_t Pwr_QueueSosMessage(void)
     memset(Msg_tx.payload, 0, sizeof(Msg_tx.payload));
     tmos_memcpy(Msg_tx.payload, payload, len);
 
+    Pwr_EnableRdssForSend();
     RD_txflag = TRUE;
     sos_send_count++;
     PRINT("[SOS] queue send %d/%d dest=%lu payload=%s\r\n",
@@ -391,6 +392,7 @@ static uint8_t Pwr_QueueLocationMessage(void)
     memset(Msg_tx.payload, 0, sizeof(Msg_tx.payload));
     tmos_memcpy(Msg_tx.payload, payload, len);
 
+    Pwr_EnableRdssForSend();
     RD_txflag = TRUE;
     PRINT("[LOC] queue send dest=%lu payload=%s\r\n", (unsigned long)dest_card, payload);
     return 1;
@@ -624,6 +626,12 @@ void OPENRD(void)
 {
 	GPIOB_SetBits(GPIO_Pin_3);// +3.7V_DM_EN
     GPIOB_SetBits(GPIO_Pin_18);// +3.3V_DM_EN
+}
+
+void Pwr_EnableRdssForSend(void)
+{
+    RD_SW_Flag = TRUE;
+    OPENRD();
 }
 
 void CLOSERD(void)

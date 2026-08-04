@@ -3091,6 +3091,7 @@ static bStatus_t rdssProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                         }
                         PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE END]\r\n");
 
+                        Pwr_EnableRdssForSend();
                         RD_txflag = true;
                         PROFILE_DEBUG_PRINTF("[RDSS 4504 WRITE] RD_txflag=%d, wait RDSS task send\r\n", RD_txflag);
                         notifyApp = RDSSPROFILE_CHAR4;

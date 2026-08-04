@@ -49,6 +49,7 @@ extern void OPENAUDIO(void);
 extern void CLOSEAUDIO(void);
 //RDSS
 extern void OPENRD(void);
+extern void Pwr_EnableRdssForSend(void);
 extern void CLOSERD(void);
 //CM112B RNSS
 extern void OPENRN(void);
