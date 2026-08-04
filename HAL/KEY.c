@@ -43,7 +43,7 @@ void HAL_KeyInit(void)
 
     //初始化位输入
     GPIOB_ModeCfg(GPIO_Pin_2, GPIO_ModeIN_Floating);//KEY1
-    GPIOB_ModeCfg(GPIO_Pin_5, GPIO_ModeIN_Floating);//KEY2
+    GPIOB_ModeCfg(GPIO_Pin_5, GPIO_ModeIN_PU);//KEY2
     // //开启下降沿中断
      GPIOB_ITModeCfg(GPIO_Pin_2,GPIO_ITMode_FallEdge);
      GPIOB_ITModeCfg(GPIO_Pin_5,GPIO_ITMode_FallEdge);

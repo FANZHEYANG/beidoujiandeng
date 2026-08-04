@@ -85,7 +85,7 @@ static uint16_t key2_hold_count = 0;
 static uint8_t key2_wait_release = 0;
 static uint8_t key2_release_count = 0;
 #define KEY2_LONG_PRESS_COUNT 48
-#define KEY2_RELEASE_STABLE_COUNT 2
+#define KEY2_RELEASE_STABLE_COUNT 10
 
 static uint8_t soft_power_off = 0;  
 
@@ -1062,6 +1062,16 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
 void Pwr_init(void)
 {
     Pwr_TaskID = TMOS_ProcessEventRegister(Pwr_ProcessEvent);//注册任务，返回task_id
+
+    if(HalKeyRead() == HAL_KEY_SW_2)
+    {
+        PWR_SW_Flag = FALSE;
+        key2_checking = 0;
+        key2_long_done = 0;
+        key2_hold_count = 0;
+        key2_wait_release = 1;
+        key2_release_count = 0;
+    }
 
     Pwr_RequestVoiceText("开机");
     tmos_start_task(Pwr_TaskID,pwr_evt,1600);//开始任务

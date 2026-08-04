@@ -19,6 +19,7 @@ def main():
     pwr_c = read_text("HAL/PWR.c")
     decode_c = read_text("HAL/decode.c")
     mcu_c = read_text("HAL/MCU.c")
+    key_c = read_text("HAL/KEY.c")
     peripheral_h = read_text("Peripheral/APP/include/peripheral.h")
     peripheral_c = read_text("Peripheral/APP/peripheral.c")
     gattprofile_c = read_text("Peripheral/Profile/gattprofile.c")
@@ -212,6 +213,10 @@ def main():
     assert "key2_release_count = 0;" in soft_power_on, "soft power-on must reset KEY2 release debounce state"
     assert "if(soft_power_off != 0)" in soft_power_off, "soft power-off must ignore duplicate off requests"
     assert "if(soft_power_off == 0)" in soft_power_on, "soft power-on must ignore duplicate on requests"
+    assert "GPIOB_ModeCfg(GPIO_Pin_5, GPIO_ModeIN_PU)" in key_c, "KEY2 must use pull-up input to avoid floating power-key interrupts"
+    assert "#define KEY2_RELEASE_STABLE_COUNT 10" in pwr_c, "KEY2 release must be stable for 10 samples before accepting a new long press"
+    assert "if(HalKeyRead() == HAL_KEY_SW_2)" in pwr_init, "Pwr_init must detect a held KEY2 at startup"
+    assert "key2_wait_release = 1;" in pwr_init, "Pwr_init must lock KEY2 until release if it starts held"
 
 
 if __name__ == "__main__":
