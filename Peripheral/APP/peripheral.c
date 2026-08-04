@@ -366,6 +366,8 @@ void Peripheral_Init()//外设从机的初始化入口
         uint8_t controlValue3[CONTROLPROFILE_CHAR3_LEN] = {0};
         uint8_t controlValue4[CONTROLPROFILE_CHAR4_LEN] = {0};
         uint8_t controlValue5[CONTROLPROFILE_CHAR5_LEN] = {0};
+        uint8_t controlValue6[CONTROLPROFILE_CHAR6_LEN] = {0};
+        uint8_t controlValue7[CONTROLPROFILE_CHAR7_LEN] = {0};
 
         //特征值设置
         SimpleProfile_SetParameter(SIMPLEPROFILE_CHAR1, SIMPLEPROFILE_CHAR1_LEN, charValue1);
@@ -381,6 +383,8 @@ void Peripheral_Init()//外设从机的初始化入口
         ControlProfile_SetParameter(CONTROLPROFILE_CHAR3, CONTROLPROFILE_CHAR3_LEN, controlValue3);
         ControlProfile_SetParameter(CONTROLPROFILE_CHAR4, CONTROLPROFILE_CHAR4_LEN, controlValue4);
         ControlProfile_SetParameter(CONTROLPROFILE_CHAR5, CONTROLPROFILE_CHAR5_LEN, controlValue5);
+        ControlProfile_SetParameter(CONTROLPROFILE_CHAR6, CONTROLPROFILE_CHAR6_LEN, controlValue6);
+        ControlProfile_SetParameter(CONTROLPROFILE_CHAR7, CONTROLPROFILE_CHAR7_LEN, controlValue7);
     }
 
     // Init Connection Item
@@ -1315,6 +1319,29 @@ static void controlProfileChangeCB(uint8_t paramID, uint8_t *pValue, uint16_t le
             uint8_t newValue[CONTROLPROFILE_CHAR5_LEN];
             tmos_memcpy(newValue, pValue, len);//接收到的数据
             PRINT("profile ChangeCB CHAR1.. \n");
+            break;
+        }
+        case CONTROLPROFILE_CHAR6:
+        {
+            uint32_t interval_sec = 0;
+            if(len >= CONTROLPROFILE_CHAR6_LEN)
+            {
+                interval_sec = ((uint32_t)pValue[0])
+                             | (((uint32_t)pValue[1]) << 8)
+                             | (((uint32_t)pValue[2]) << 16)
+                             | (((uint32_t)pValue[3]) << 24);
+            }
+            Pwr_SetLocationReportInterval(interval_sec);
+            PRINT("[LOC] app timer interval=%lu sec\r\n", (unsigned long)interval_sec);
+            break;
+        }
+        case CONTROLPROFILE_CHAR7:
+        {
+            if((len >= CONTROLPROFILE_CHAR7_LEN) && (pValue[0] != 0))
+            {
+                Pwr_RequestLocationReport();
+            }
+            PRINT("[LOC] app direct send cmd=%d\r\n", (len > 0) ? pValue[0] : 0);
             break;
         }
         default:

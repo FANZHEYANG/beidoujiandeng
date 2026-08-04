@@ -35,6 +35,9 @@ static uint8_t Bat_TaskID; // Task ID for BAT processing
 #define SOS_MSG_LF 3
 #define SOS_MSG_ENCODE 2
 #define SOS_MSG_GENERATION 3
+#define LOCATION_MSG_LF SOS_MSG_LF
+#define LOCATION_MSG_ENCODE SOS_MSG_ENCODE
+#define LOCATION_MSG_GENERATION SOS_MSG_GENERATION
 
 #define SOS_STATE_IDLE 0
 #define SOS_STATE_WAIT_FIX 1
@@ -69,6 +72,7 @@ static uint8_t sos_state = SOS_STATE_IDLE;
 static uint8_t sos_send_count = 0;
 static uint16_t sos_wait_fix_count = 0;
 static volatile uint8_t sos_reply_received = 0;
+static uint32_t location_report_interval_sec = 0;
 
 static uint8_t led_flash_enable = 0;
 static uint8_t led_index = 0;
@@ -91,6 +95,8 @@ static void Pwr_StartSosAlarm(void);
 static void Pwr_StopSosAlarm(uint8_t reason);
 static void Pwr_HandleKey1Event(void);
 static void Pwr_HandleSosAlarmEvent(void);
+static uint8_t Pwr_QueueLocationMessage(void);
+static void Pwr_ScheduleLocationReport(void);
 
 uint8_t  key_timer_cnt=0;
 /**************************************************************************************************
@@ -323,6 +329,83 @@ static uint8_t Pwr_QueueSosMessage(void)
     return 1;
 }
 
+static void Pwr_ScheduleLocationReport(void)
+{
+    if(location_report_interval_sec != 0)
+    {
+        tmos_start_task(Pwr_TaskID, location_report_evt, MS1_TO_SYSTEM_TIME(location_report_interval_sec * 1000UL));
+    }
+}
+
+static uint8_t Pwr_QueueLocationMessage(void)
+{
+    char lat[16] = {0};
+    char lon[16] = {0};
+    char payload[RDSS_MSG_PAYLOAD_MAX + 1] = {0};
+    uint32_t dest_card;
+    uint16_t len;
+
+    if(RD_txflag != 0)
+    {
+        PRINT("[LOC] wait previous RDSS tx\r\n");
+        return 0;
+    }
+
+    if(!Pwr_IsGnssFixed())
+    {
+        PRINT("[LOC] skip, not fixed\r\n");
+        return 0;
+    }
+
+    if(frequency_count_down != 0)
+    {
+        PRINT("[LOC] wait frequency countdown=%u\r\n", frequency_count_down);
+        return 0;
+    }
+
+    dest_card = strtoul((char *)DestIC, NULL, 10);
+    if(dest_card == 0)
+    {
+        PRINT("[LOC] skip, no dest card\r\n");
+        return 0;
+    }
+
+    Pwr_FormatCoord(lat, GGA.latitude);
+    Pwr_FormatCoord(lon, GGA.longitude);
+    sprintf(payload, "LOC,LAT=%s,LON=%s,HR=0,O2=0,STEP=0,KCAL=0", lat, lon);
+    len = Rdss_SanitizePayloadLen((uint8_t *)payload, strlen(payload));
+
+    Msg_tx.lf = LOCATION_MSG_LF;
+    Msg_tx.encode = LOCATION_MSG_ENCODE;
+    Msg_tx.generation = LOCATION_MSG_GENERATION;
+    Msg_tx.reservied = 0;
+    Msg_tx.heart_rate = 0;
+    Msg_tx.blood_oxygen = 0;
+    Msg_tx.foot_step = 0;
+    Msg_tx.kcal = 0;
+    Msg_tx.dest_card = dest_card;
+    Msg_tx.payload_len = len;
+    memset(Msg_tx.payload, 0, sizeof(Msg_tx.payload));
+    tmos_memcpy(Msg_tx.payload, payload, len);
+
+    RD_txflag = TRUE;
+    PRINT("[LOC] queue send dest=%lu payload=%s\r\n", (unsigned long)dest_card, payload);
+    return 1;
+}
+
+void Pwr_SetLocationReportInterval(uint32_t interval_sec)
+{
+    location_report_interval_sec = interval_sec;
+    tmos_stop_task(Pwr_TaskID, location_report_evt);
+
+    PRINT("[LOC] timer interval=%lu sec\r\n", (unsigned long)location_report_interval_sec);
+    Pwr_ScheduleLocationReport();
+}
+
+void Pwr_RequestLocationReport(void)
+{
+    Pwr_QueueLocationMessage();
+}
 static void Pwr_StartSosAlarm(void)
 {
     uint32_t sos_contact = strtoul((char *)DestIC, NULL, 10);
@@ -638,6 +721,8 @@ static void SoftPowerOff(void)
     key1_hold_count = 0;
     gnss_last_fixed = 0;
     Pwr_StopSosAlarm(SOS_EXIT_POWER);
+    location_report_interval_sec = 0;
+    tmos_stop_task(Pwr_TaskID, location_report_evt);
     SOS_SW_Flag = FALSE;
 
     Peripheral_BleOff();
@@ -675,6 +760,8 @@ static void SoftPowerOn(void)
     key1_long_done = 0;
     key1_hold_count = 0;
     gnss_last_fixed = 0;
+    location_report_interval_sec = 0;
+    tmos_stop_task(Pwr_TaskID, location_report_evt);
     SOS_SW_Flag = FALSE;
 
     RN_SW_Flag = FALSE;
@@ -771,6 +858,16 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
     {
         Pwr_HandleSosAlarmEvent();
         return (events ^ sos_alarm_evt);
+    }
+
+    if(events & location_report_evt)
+    {
+        if((soft_power_off == 0) && (location_report_interval_sec != 0))
+        {
+            Pwr_QueueLocationMessage();
+            Pwr_ScheduleLocationReport();
+        }
+        return (events ^ location_report_evt);
     }
 
     if(events & auto_poweroff_evt)

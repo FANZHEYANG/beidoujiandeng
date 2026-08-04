@@ -6,7 +6,7 @@
  * Description        : 自定义包含五种不同属性的服务，包含可读、可写、通知、可读可写、安全可读
  *********************************************************************************
  * Copyright (c) 2021 Nanjing Qinheng Microelectronics Co., Ltd.
- * Attention: This software (modified or not) and binary are used for 
+ * Attention: This software (modified or not) and binary are used for
  * microcontroller manufactured by Nanjing Qinheng Microelectronics.
  *******************************************************************************/
 
@@ -116,6 +116,14 @@ const uint8_t controlProfilechar4UUID[ATT_BT_UUID_SIZE] = {
 // Characteristic 5 UUID: 0x4005
 const uint8_t controlProfilechar5UUID[ATT_BT_UUID_SIZE] = {
     LO_UINT16(CONTROLPROFILE_CHAR5_UUID), HI_UINT16(CONTROLPROFILE_CHAR5_UUID)};
+
+// Characteristic 6 UUID: 0x4006
+const uint8_t controlProfilechar6UUID[ATT_BT_UUID_SIZE] = {
+    LO_UINT16(CONTROLPROFILE_CHAR6_UUID), HI_UINT16(CONTROLPROFILE_CHAR6_UUID)};
+
+// Characteristic 7 UUID: 0x4007
+const uint8_t controlProfilechar7UUID[ATT_BT_UUID_SIZE] = {
+    LO_UINT16(CONTROLPROFILE_CHAR7_UUID), HI_UINT16(CONTROLPROFILE_CHAR7_UUID)};
 
 //自定义添加 GNSS服务
 // GNSS GATT Profile Service UUID: 0x1819
@@ -291,6 +299,20 @@ static uint8_t controlProfileChar5Props = GATT_PROP_WRITE;
 static uint8_t controlProfileChar5[CONTROLPROFILE_CHAR5_LEN] = {0};
 // Control Profile Characteristic 5 User Description
 static uint8_t controlProfileChar5UserDesp[] = "RDSS reset\0";
+
+// Control Profile Characteristic 6 Properties
+static uint8_t controlProfileChar6Props = GATT_PROP_READ | GATT_PROP_WRITE;
+// Characteristic 6 Value
+static uint8_t controlProfileChar6[CONTROLPROFILE_CHAR6_LEN] = {0};
+// Control Profile Characteristic 6 User Description
+static uint8_t controlProfileChar6UserDesp[] = "Location timer\0";
+
+// Control Profile Characteristic 7 Properties
+static uint8_t controlProfileChar7Props = GATT_PROP_WRITE;
+// Characteristic 7 Value
+static uint8_t controlProfileChar7[CONTROLPROFILE_CHAR7_LEN] = {0};
+// Control Profile Characteristic 7 User Description
+static uint8_t controlProfileChar7UserDesp[] = "Location send\0";
 
 //定义一个GNSS定位服务
 //GNSS Service attribute
@@ -500,7 +522,7 @@ static gattAttribute_t cardProfileAttrTb[]=
 {
         //led priofile service
         {
-            {ATT_BT_UUID_SIZE,primaryServiceUUID}, //type(属性类型)   属性类型：主服务primaryServiceUUIDd为0x2800即主服务类型。 
+            {ATT_BT_UUID_SIZE,primaryServiceUUID}, //type(属性类型)   属性类型：主服务primaryServiceUUIDd为0x2800即主服务类型。
             GATT_PERMIT_READ,                      //permissions(GATT客户端对于该属性的权限)    即客户端对于该服务的权限，GATT_PERMIT_READ客户端可以发现这个服务。
             0,                                     //handle(表中属性的索引)    即在这个属性表中的位置指明这是在这个数组中的第几个数组元素,因为这个句柄是协议栈自动分配的，因此默认初始化为0
             (uint8_t *)&cardProfileService            //pValue(指向属性值的指针)    用自己定义的UUID值0xFFF0来指向这个服务
@@ -524,9 +546,9 @@ static gattAttribute_t cardProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            cardProfileCharUserDesp                   //描述的内容       
+            cardProfileCharUserDesp                   //描述的内容
         },
- 
+
 };
 
 //属性表
@@ -534,7 +556,7 @@ static gattAttribute_t batteryProfileAttrTb[]=
 {
         //battery priofile service
         {
-            {ATT_BT_UUID_SIZE,primaryServiceUUID}, //type(属性类型)   属性类型：主服务primaryServiceUUIDd为0x2800即主服务类型。 
+            {ATT_BT_UUID_SIZE,primaryServiceUUID}, //type(属性类型)   属性类型：主服务primaryServiceUUIDd为0x2800即主服务类型。
             GATT_PERMIT_READ,                      //permissions(GATT客户端对于该属性的权限)    即客户端对于该服务的权限，GATT_PERMIT_READ客户端可以发现这个服务。
             0,                                     //handle(表中属性的索引)    即在这个属性表中的位置指明这是在这个数组中的第几个数组元素,因为这个句柄是协议栈自动分配的，因此默认初始化为0
             (uint8_t *)&batteryProfileService            //pValue(指向属性值的指针)    用自己定义的UUID值0x180F来指向这个服务
@@ -565,7 +587,7 @@ static gattAttribute_t batteryProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            batteryProfileCharUserDesp                   //描述的内容       
+            batteryProfileCharUserDesp                   //描述的内容
         },
 
 };
@@ -683,6 +705,48 @@ static gattAttribute_t controlProfileAttrTb[] = {
         GATT_PERMIT_READ,
         0,
         controlProfileChar5UserDesp},
+
+    // Characteristic 6 Declaration
+    {
+        {ATT_BT_UUID_SIZE, characterUUID},
+        GATT_PERMIT_READ,
+        0,
+        &controlProfileChar6Props},
+
+    // Characteristic Value 6
+    {
+        {ATT_BT_UUID_SIZE, controlProfilechar6UUID},
+        GATT_PERMIT_READ | GATT_PERMIT_WRITE,
+        0,
+        controlProfileChar6},
+
+    // Characteristic 6 User Description
+    {
+        {ATT_BT_UUID_SIZE, charUserDescUUID},
+        GATT_PERMIT_READ,
+        0,
+        controlProfileChar6UserDesp},
+
+    // Characteristic 7 Declaration
+    {
+        {ATT_BT_UUID_SIZE, characterUUID},
+        GATT_PERMIT_READ,
+        0,
+        &controlProfileChar7Props},
+
+    // Characteristic Value 7
+    {
+        {ATT_BT_UUID_SIZE, controlProfilechar7UUID},
+        GATT_PERMIT_WRITE,
+        0,
+        controlProfileChar7},
+
+    // Characteristic 7 User Description
+    {
+        {ATT_BT_UUID_SIZE, charUserDescUUID},
+        GATT_PERMIT_READ,
+        0,
+        controlProfileChar7UserDesp},
 };
 
 //属性表
@@ -690,7 +754,7 @@ static gattAttribute_t gnssProfileAttrTb[]=
 {
         //gnss priofile service
         {
-            {ATT_BT_UUID_SIZE,primaryServiceUUID}, //type(属性类型)   属性类型：主服务primaryServiceUUIDd为0x2800即主服务类型。 
+            {ATT_BT_UUID_SIZE,primaryServiceUUID}, //type(属性类型)   属性类型：主服务primaryServiceUUIDd为0x2800即主服务类型。
             GATT_PERMIT_READ,                      //permissions(GATT客户端对于该属性的权限)    即客户端对于该服务的权限，GATT_PERMIT_READ客户端可以发现这个服务。
             0,                                     //handle(表中属性的索引)    即在这个属性表中的位置指明这是在这个数组中的第几个数组元素,因为这个句柄是协议栈自动分配的，因此默认初始化为0
             (uint8_t *)&gnssProfileService            //pValue(指向属性值的指针)    用自己定义的UUID值0x180F来指向这个服务
@@ -721,7 +785,7 @@ static gattAttribute_t gnssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            gnssProfileChar1UserDesp                   //描述的内容       
+            gnssProfileChar1UserDesp                   //描述的内容
         },
         //characteristic Declaration
         {
@@ -749,7 +813,7 @@ static gattAttribute_t gnssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            gnssProfileChar2UserDesp                   //描述的内容       
+            gnssProfileChar2UserDesp                   //描述的内容
         },
 };
 
@@ -758,7 +822,7 @@ static gattAttribute_t rdssProfileAttrTb[]=
 {
         //rdss priofile service
         {
-            {ATT_BT_UUID_SIZE,primaryServiceUUID}, //type(属性类型)   属性类型：主服务primaryServiceUUIDd为0x2800即主服务类型。 
+            {ATT_BT_UUID_SIZE,primaryServiceUUID}, //type(属性类型)   属性类型：主服务primaryServiceUUIDd为0x2800即主服务类型。
             GATT_PERMIT_READ,                      //permissions(GATT客户端对于该属性的权限)    即客户端对于该服务的权限，GATT_PERMIT_READ客户端可以发现这个服务。
             0,                                     //handle(表中属性的索引)    即在这个属性表中的位置指明这是在这个数组中的第几个数组元素,因为这个句柄是协议栈自动分配的，因此默认初始化为0
             (uint8_t *)&rdssProfileService            //pValue(指向属性值的指针)    用自己定义的UUID值0x180F来指向这个服务
@@ -782,7 +846,7 @@ static gattAttribute_t rdssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            rdssProfileChar1UserDesp                   //描述的内容       
+            rdssProfileChar1UserDesp                   //描述的内容
         },
         //characteristic Declaration
         {
@@ -810,7 +874,7 @@ static gattAttribute_t rdssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            rdssProfileChar2UserDesp                   //描述的内容       
+            rdssProfileChar2UserDesp                   //描述的内容
         },
         //characteristic Declaration
         {
@@ -838,7 +902,7 @@ static gattAttribute_t rdssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            rdssProfileChar3UserDesp                   //描述的内容       
+            rdssProfileChar3UserDesp                   //描述的内容
         },
         //characteristic Declaration
         {
@@ -859,7 +923,7 @@ static gattAttribute_t rdssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            rdssProfileChar4UserDesp                   //描述的内容       
+            rdssProfileChar4UserDesp                   //描述的内容
         },
         //characteristic Declaration
         {
@@ -887,7 +951,7 @@ static gattAttribute_t rdssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            rdssProfileChar5UserDesp                   //描述的内容       
+            rdssProfileChar5UserDesp                   //描述的内容
         },
         //characteristic Declaration
         {
@@ -915,7 +979,7 @@ static gattAttribute_t rdssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            rdssProfileChar6UserDesp                   //描述的内容       
+            rdssProfileChar6UserDesp                   //描述的内容
         },
         //characteristic Declaration
         {
@@ -943,7 +1007,7 @@ static gattAttribute_t rdssProfileAttrTb[]=
             {ATT_BT_UUID_SIZE,charUserDescUUID},     //特征描述的UUID
             GATT_PERMIT_READ,
             0,
-            rdssProfileChar7UserDesp                   //描述的内容       
+            rdssProfileChar7UserDesp                   //描述的内容
         },
 };
 /*********************************************************************
@@ -1002,7 +1066,7 @@ gattServiceCBs_t simpleProfileCBs = {
 gattServiceCBs_t batteryProfileCBs = {
     batteryProfile_ReadAttrCB,  // Read callback function pointer
     batteryProfile_WriteAttrCB, // Write callback function pointer
- 
+
     NULL                       // Authorization callback function pointer
 };
 
@@ -1010,7 +1074,7 @@ gattServiceCBs_t batteryProfileCBs = {
 gattServiceCBs_t controlProfileCBs = {
     controlProfile_ReadAttrCB,  // Read callback function pointer
     controlProfile_WriteAttrCB, // Write callback function pointer
- 
+
     NULL                       // Authorization callback function pointer
 };
 
@@ -1018,7 +1082,7 @@ gattServiceCBs_t controlProfileCBs = {
 gattServiceCBs_t cardProfileCBs = {
     cardProfile_ReadAttrCB,  // Read callback function pointer
     cardProfile_WriteAttrCB, // Write callback function pointer
- 
+
     NULL                       // Authorization callback function pointer
 };
 
@@ -1026,7 +1090,7 @@ gattServiceCBs_t cardProfileCBs = {
 gattServiceCBs_t gnssProfileCBs = {
     gnssProfile_ReadAttrCB,  // Read callback function pointer
     gnssProfile_WriteAttrCB, // Write callback function pointer
- 
+
     NULL                       // Authorization callback function pointer
 };
 
@@ -1034,7 +1098,7 @@ gattServiceCBs_t gnssProfileCBs = {
 gattServiceCBs_t rdssProfileCBs = {
     rdssProfile_ReadAttrCB,  // Read callback function pointer
     rdssProfile_WriteAttrCB, // Write callback function pointer
- 
+
     NULL                       // Authorization callback function pointer
 };
 /*********************************************************************
@@ -1059,13 +1123,13 @@ bStatus_t Battery_Addservice(uint32_t services)
 
     // 注册notify特征
     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, batteryProfileCharConfig);
- 
+
     // 连接状态回调
     linkDB_Register(batteryProfile_HandleConnStatusCB);
 
     if(services & BATTERYPROFILE_SERVICE)
     {
-        status = GATTServApp_RegisterService(batteryProfileAttrTb,             //属性表   
+        status = GATTServApp_RegisterService(batteryProfileAttrTb,             //属性表
                                         GATT_NUM_ATTRS(batteryProfileAttrTb),
                                         GATT_MAX_ENCRYPT_KEY_SIZE,
                                         &batteryProfileCBs);                    //读写回调函数有数据读写时调到读写函数中
@@ -1077,32 +1141,32 @@ bStatus_t Battery_Addservice(uint32_t services)
 bStatus_t Control_Addservice(uint32_t services)
 {
     uint8_t status = SUCCESS;
- 
+
     if(services & CONTROLPROFILE_SERVICE)
     {
-        status = GATTServApp_RegisterService(controlProfileAttrTb,             //属性表   
+        status = GATTServApp_RegisterService(controlProfileAttrTb,             //属性表
                                         GATT_NUM_ATTRS(controlProfileAttrTb),
                                         GATT_MAX_ENCRYPT_KEY_SIZE,
                                         &controlProfileCBs);                    //读写回调函数有数据读写时调到读写函数中
     }
     return (status);
- 
+
 }
 
 //注册服务函数
 bStatus_t CardProfile_Addservice(uint32_t services)
 {
     uint8_t status = SUCCESS;
- 
+
     if(services & CARDPROFILE_SERVICE)
     {
-        status = GATTServApp_RegisterService(cardProfileAttrTb,             //属性表   
+        status = GATTServApp_RegisterService(cardProfileAttrTb,             //属性表
                                         GATT_NUM_ATTRS(cardProfileAttrTb),
                                         GATT_MAX_ENCRYPT_KEY_SIZE,
                                         &cardProfileCBs);                    //读写回调函数有数据读写时调到读写函数中
     }
     return (status);
- 
+
 }
 
 bStatus_t SimpleProfile_AddService(uint32_t services)
@@ -1135,13 +1199,13 @@ bStatus_t Gnss_Addservice(uint32_t services)
     // 注册notify特征
     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, gnssProfileChar1Config);
     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, gnssProfileChar2Config);
- 
+
     // 连接状态回调
     linkDB_Register(gnssProfile_HandleConnStatusCB);
 
     if(services & GNSSPROFILE_SERVICE)
     {
-        status = GATTServApp_RegisterService(gnssProfileAttrTb,             //属性表   
+        status = GATTServApp_RegisterService(gnssProfileAttrTb,             //属性表
                                         GATT_NUM_ATTRS(gnssProfileAttrTb),
                                         GATT_MAX_ENCRYPT_KEY_SIZE,
                                         &gnssProfileCBs);                    //读写回调函数有数据读写时调到读写函数中
@@ -1160,13 +1224,13 @@ bStatus_t Rdss_Addservice(uint32_t services)
     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, rdssProfileChar5Config);
     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, rdssProfileChar6Config);
     GATTServApp_InitCharCfg(INVALID_CONNHANDLE, rdssProfileChar7Config);
- 
+
     // 连接状态回调
     linkDB_Register(rdssProfile_HandleConnStatusCB);
 
     if(services & RDSSPROFILE_SERVICE)
     {
-        status = GATTServApp_RegisterService(rdssProfileAttrTb,             //属性表   
+        status = GATTServApp_RegisterService(rdssProfileAttrTb,             //属性表
                                         GATT_NUM_ATTRS(rdssProfileAttrTb),
                                         GATT_MAX_ENCRYPT_KEY_SIZE,
                                         &rdssProfileCBs);                    //读写回调函数有数据读写时调到读写函数中
@@ -1412,6 +1476,28 @@ bStatus_t ControlProfile_SetParameter(uint8_t param, uint8_t len, void *value)
             if(len == CONTROLPROFILE_CHAR5_LEN)
             {
                 tmos_memcpy(controlProfileChar5, value, CONTROLPROFILE_CHAR5_LEN);
+            }
+            else
+            {
+                ret = bleInvalidRange;
+            }
+            break;
+
+        case CONTROLPROFILE_CHAR6:
+            if(len == CONTROLPROFILE_CHAR6_LEN)
+            {
+                tmos_memcpy(controlProfileChar6, value, CONTROLPROFILE_CHAR6_LEN);
+            }
+            else
+            {
+                ret = bleInvalidRange;
+            }
+            break;
+
+        case CONTROLPROFILE_CHAR7:
+            if(len == CONTROLPROFILE_CHAR7_LEN)
+            {
+                tmos_memcpy(controlProfileChar7, value, CONTROLPROFILE_CHAR7_LEN);
             }
             else
             {
@@ -2019,7 +2105,7 @@ static bStatus_t batteryProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t 
 {
     bStatus_t status =SUCCESS;
     static uint8_t read_data[BATTERYPROFILE_CHAR_LEN] = {0};
- 
+
     if(gattPermitAuthenRead(pAttr->permissions))
     {
         return(ATT_ERR_INSUFFICIENT_AUTHOR);
@@ -2031,7 +2117,7 @@ static bStatus_t batteryProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t 
     if(pAttr->type.len == ATT_BT_UUID_SIZE)
     {
         uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0],pAttr->type.uuid[1]);
-        
+
         switch(uuid)
         {
         case BATT_LEVEL_UUID:
@@ -2046,7 +2132,7 @@ static bStatus_t batteryProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t 
                 read_data[0] = Bat_percentage;
 
                 tmos_memcpy(pValue, read_data, *pLen);
-                
+
         break;
 
         default:
@@ -2113,7 +2199,7 @@ static bStatus_t controlProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t 
                                           uint8_t *pValue, uint16_t *pLen, uint16_t offset, uint16_t maxLen, uint8_t method)
 {
     bStatus_t status =SUCCESS;
- 
+
     if(gattPermitAuthenRead(pAttr->permissions))
     {
         return(ATT_ERR_INSUFFICIENT_AUTHOR);
@@ -2132,28 +2218,33 @@ static bStatus_t controlProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t 
              static uint8_t read_data1[CONTROLPROFILE_CHAR1_LEN] = {0};
              read_data1[0] = RN_SW_Flag;
              tmos_memcpy(pValue, read_data1, *pLen);
-             
+
         break;
         case CONTROLPROFILE_CHAR2_UUID://RDSS开关
              *pLen = CONTROLPROFILE_CHAR2_LEN;
              static uint8_t read_data2[CONTROLPROFILE_CHAR2_LEN] = {0};
              read_data2[0] = RD_SW_Flag;
              tmos_memcpy(pValue, read_data2, *pLen);
-             
+
         break;
         case CONTROLPROFILE_CHAR3_UUID://SOS开关
              *pLen = CONTROLPROFILE_CHAR3_LEN;
              static uint8_t read_data3[CONTROLPROFILE_CHAR3_LEN] = {0};
              read_data3[0] = SOS_SW_Flag;
              tmos_memcpy(pValue, read_data3, *pLen);
-             
+
         break;
         case CONTROLPROFILE_CHAR4_UUID://RDSS过检开关
              *pLen = CONTROLPROFILE_CHAR4_LEN;
              static uint8_t read_data4[CONTROLPROFILE_CHAR4_LEN] = {0};
              read_data4[0] = RD_TEST_Flag;
              tmos_memcpy(pValue, read_data4, *pLen);
-             
+
+        break;
+        case CONTROLPROFILE_CHAR6_UUID://Location timer
+             *pLen = CONTROLPROFILE_CHAR6_LEN;
+             tmos_memcpy(pValue, controlProfileChar6, *pLen);
+
         break;
         default:
             *pLen = 0;
@@ -2167,18 +2258,18 @@ static bStatus_t controlProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t 
     }
     return(status);
 }
- 
+
 static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
                                            uint8_t *pValue, uint16_t len, uint16_t offset, uint8_t method)
 {
     bStatus_t status =SUCCESS;
     uint8_t notifyApp = 0xFF;
- 
+
     if(gattPermitAuthenWrite(pAttr->permissions))
     {
         return(ATT_ERR_INSUFFICIENT_AUTHOR);
     }
- 
+
     if(pAttr->type.len == ATT_BT_UUID_SIZE)
     {
         uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0],pAttr->type.uuid[1]);
@@ -2195,7 +2286,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
             else {
                 status = ATT_ERR_ATTR_NOT_LONG;
             }
- 
+
             if(status == SUCCESS) //Write the value
             {
                 tmos_memcpy(pAttr->pValue, pValue, CONTROLPROFILE_CHAR1_LEN);
@@ -2205,7 +2296,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
                     RN_SW_Flag = TRUE;
                 notifyApp = CONTROLPROFILE_CHAR1;
             }
-            
+
         break;
         case CONTROLPROFILE_CHAR2_UUID://RDSS开关
             if(offset == 0)
@@ -2218,7 +2309,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
             else {
                 status = ATT_ERR_ATTR_NOT_LONG;
             }
- 
+
             if(status == SUCCESS) //Write the value
             {
                 tmos_memcpy(pAttr->pValue, pValue, CONTROLPROFILE_CHAR2_LEN);
@@ -2228,7 +2319,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
                     RD_SW_Flag = TRUE;
                 notifyApp = CONTROLPROFILE_CHAR2;
             }
-            
+
         break;
         case CONTROLPROFILE_CHAR3_UUID://SOS开关
             if(offset == 0)
@@ -2241,7 +2332,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
             else {
                 status = ATT_ERR_ATTR_NOT_LONG;
             }
- 
+
             if(status == SUCCESS) //Write the value
             {
                 tmos_memcpy(pAttr->pValue, pValue, CONTROLPROFILE_CHAR3_LEN);
@@ -2251,7 +2342,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
                     SOS_SW_Flag = TRUE;
                 notifyApp = CONTROLPROFILE_CHAR3;
             }
-            
+
         break;
         case CONTROLPROFILE_CHAR4_UUID://RDSS过检开关
             if(offset == 0)
@@ -2264,7 +2355,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
             else {
                 status = ATT_ERR_ATTR_NOT_LONG;
             }
- 
+
             if(status == SUCCESS) //Write the value
             {
                 tmos_memcpy(pAttr->pValue, pValue, CONTROLPROFILE_CHAR4_LEN);
@@ -2274,7 +2365,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
                     RD_TEST_Flag = TRUE;
                 notifyApp = CONTROLPROFILE_CHAR4;
             }
-            
+
         break;
         case CONTROLPROFILE_CHAR5_UUID://RDSS复位开关
             if(offset == 0)
@@ -2287,7 +2378,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
             else {
                 status = ATT_ERR_ATTR_NOT_LONG;
             }
- 
+
             if(status == SUCCESS) //Write the value
             {
                 tmos_memcpy(pAttr->pValue, pValue, CONTROLPROFILE_CHAR5_LEN);
@@ -2297,10 +2388,48 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
                     RD_RST_Flag = TRUE;
                 notifyApp = CONTROLPROFILE_CHAR5;
             }
-            
+
+        break;
+        case CONTROLPROFILE_CHAR6_UUID://Location timer
+            if(offset == 0)
+            {
+                if(len != CONTROLPROFILE_CHAR6_LEN)
+                {
+                    status = ATT_ERR_INVALID_VALUE_SIZE;
+                }
+            }
+            else {
+                status = ATT_ERR_ATTR_NOT_LONG;
+            }
+
+            if(status == SUCCESS) //Write the value
+            {
+                tmos_memcpy(pAttr->pValue, pValue, CONTROLPROFILE_CHAR6_LEN);
+                notifyApp = CONTROLPROFILE_CHAR6;
+            }
+
+        break;
+        case CONTROLPROFILE_CHAR7_UUID://Location send
+            if(offset == 0)
+            {
+                if(len != CONTROLPROFILE_CHAR7_LEN)
+                {
+                    status = ATT_ERR_INVALID_VALUE_SIZE;
+                }
+            }
+            else {
+                status = ATT_ERR_ATTR_NOT_LONG;
+            }
+
+            if(status == SUCCESS) //Write the value
+            {
+                tmos_memcpy(pAttr->pValue, pValue, CONTROLPROFILE_CHAR7_LEN);
+                notifyApp = CONTROLPROFILE_CHAR7;
+            }
+
         break;
         default:
- 
+
             status = ATT_ERR_ATTR_NOT_FOUND;
             break;
         }
@@ -2316,7 +2445,7 @@ static bStatus_t controlProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t
       return ( status );
 }
 
- 
+
 //读写回调
 static bStatus_t cardProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
                                           uint8_t *pValue, uint16_t *pLen, uint16_t offset, uint16_t maxLen, uint8_t method)
@@ -2324,7 +2453,7 @@ static bStatus_t cardProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
     bStatus_t status =SUCCESS;
     static uint8_t read_data[CARDPROFILE_CHAR_LEN] = {0};
     unsigned int temp_id = 0;
- 
+
     if(gattPermitAuthenRead(pAttr->permissions))
     {
         return(ATT_ERR_INSUFFICIENT_AUTHOR);
@@ -2361,7 +2490,7 @@ static bStatus_t cardProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
     }
     return(status);
 }
- 
+
 static bStatus_t cardProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *pAttr,
                                            uint8_t *pValue, uint16_t len, uint16_t offset, uint8_t method)
 {
@@ -2369,12 +2498,12 @@ static bStatus_t cardProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
     uint8_t notifyApp = 0xFF;
     uint32_t temp_id = 0;
     uint8_t i = 0;
- 
+
     if(gattPermitAuthenWrite(pAttr->permissions))
     {
         return(ATT_ERR_INSUFFICIENT_AUTHOR);
     }
- 
+
     if(pAttr->type.len == ATT_BT_UUID_SIZE)
     {
         uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0],pAttr->type.uuid[1]);
@@ -2393,7 +2522,7 @@ static bStatus_t cardProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                 status = ATT_ERR_ATTR_NOT_LONG;
                 PROFILE_DEBUG_PRINTF("\r\n[CARD 4101 WRITE FAIL] offset=%d not supported\r\n", offset);
             }
- 
+
             if(status == SUCCESS)
             {
                 uint8_t ascii_card = TRUE;
@@ -2458,10 +2587,10 @@ static bStatus_t cardProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                     notifyApp = CARDPROFILE_CHAR;
                 }
             }
-            
+
         break;
         default:
- 
+
             status = ATT_ERR_ATTR_NOT_FOUND;
             break;
         }
@@ -2481,7 +2610,7 @@ void float_to_bytes_memcpy(float value, uint8_t* bytes) {
     // 先将float转换为uint32_t
     uint32_t temp;
     memcpy(&temp, &value, sizeof(float));
-    
+
     // 转换为大端序
     bytes[0] = (temp >> 24) & 0xFF;
     bytes[1] = (temp >> 16) & 0xFF;
@@ -2498,7 +2627,7 @@ static bStatus_t gnssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
     static uint8_t read_data2[GNSSPROFILE_CHAR2_LEN] = {0};
     uint8_t temp_bytes[4] = {0};
     uint8_t i;
- 
+
     if(gattPermitAuthenRead(pAttr->permissions))
     {
         return(ATT_ERR_INSUFFICIENT_AUTHOR);
@@ -2510,7 +2639,7 @@ static bStatus_t gnssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
     if(pAttr->type.len == ATT_BT_UUID_SIZE)
     {
         uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0],pAttr->type.uuid[1]);
-        
+
         switch(uuid)
         {
         case LN_FEATURE_UUID:
@@ -2528,7 +2657,7 @@ static bStatus_t gnssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 }
 
                 tmos_memcpy(pValue, read_data1, *pLen);
-                
+
         break;
         case LOC_SPEED_UUID:
                 if(maxLen > GNSSPROFILE_CHAR2_LEN)
@@ -2587,7 +2716,7 @@ static bStatus_t gnssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 }
 
                 tmos_memcpy(pValue, read_data2, *pLen);
-                
+
         break;
         default:
             *pLen = 0;
@@ -2661,7 +2790,7 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
     static uint8_t read_data6[RDSSPROFILE_CHAR6_LEN] = {0};
     static uint8_t read_data7[RDSSPROFILE_CHAR7_LEN] = {0};
     uint16_t i;
- 
+
     if(gattPermitAuthenRead(pAttr->permissions))
     {
         return(ATT_ERR_INSUFFICIENT_AUTHOR);
@@ -2673,7 +2802,7 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
     if(pAttr->type.len == ATT_BT_UUID_SIZE)
     {
         uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0],pAttr->type.uuid[1]);
-        
+
         switch(uuid)
         {
         case RDSSPROFILE_CHAR1_UUID://0x4501模块信息
@@ -2689,20 +2818,20 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 // strcpy(Model_info.type, "DM229");
                 // strcpy(Model_info.version, "V1.5.98.6-Q");
                 for(i=0; i<10; i++)
-			    {	
+			    {
                     sscanf(Model_info.vendor + i,"%c",&read_data1[i]); //把字符串格式化为字符
                 }
                 for(i=0; i<10; i++)
-			    {	
+			    {
                     sscanf(Model_info.type + i,"%c",&read_data1[10+i]); //把字符串格式化为字符
                 }
                 for(i=0; i<32; i++)
-			    {	
+			    {
                     sscanf(Model_info.version + i,"%c",&read_data1[20+i]); //把字符串格式化为字符
                 }
 
                 tmos_memcpy(pValue, read_data1, *pLen);
-                
+
         break;
         case RDSSPROFILE_CHAR2_UUID://0x4502卡信息，C6 3B 40 00 02 00 3C 02 00 00 00 00 03 00 00 00
                 if(maxLen > RDSSPROFILE_CHAR2_LEN)
@@ -2731,7 +2860,7 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 read_data2[15] = 0;  // 保留字节
 
                 tmos_memcpy(pValue, read_data2, *pLen);
-                
+
         break;
         case RDSSPROFILE_CHAR3_UUID://0x4503信噪比前12强数组，00 00 00 00 00 00 00 00 00 00 00 00
                 if(maxLen > RDSSPROFILE_CHAR3_LEN)
@@ -2744,12 +2873,12 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 }
 
                 for(i=0; i<12; i++)
-			    {	
+			    {
                     read_data3[i] = snr[i];
                 }
 
                 tmos_memcpy(pValue, read_data3, *pLen);
-                
+
         break;
         case RDSSPROFILE_CHAR5_UUID://0x4505反馈信息，00 00 00 00 00 00 00 00
                 if(maxLen > RDSSPROFILE_CHAR5_LEN)
@@ -2769,7 +2898,7 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 read_data5[6] = 0;  // 保留字节
                 read_data5[7] = 0;  // 保留字节
                 tmos_memcpy(pValue, read_data5, *pLen);
-                
+
         break;
         case RDSSPROFILE_CHAR6_UUID://0x4506入站信息
                 if(maxLen > RDSSPROFILE_CHAR6_LEN)
@@ -2808,7 +2937,7 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 }
 
                 tmos_memcpy(pValue, read_data6, *pLen);
-                
+
         break;
         case RDSSPROFILE_CHAR7_UUID://0x4507频度倒计时，00 00 00 00
                 if(maxLen > RDSSPROFILE_CHAR7_LEN)
@@ -2825,7 +2954,7 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 read_data7[3] =(uint8_t) ((frequency_count_down & 0xFF000000)>>24);
 
                 tmos_memcpy(pValue, read_data7, *pLen);
-                
+
         break;
 
         default:
@@ -2859,7 +2988,7 @@ static bStatus_t rdssProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
     {
         // 16-bit UUID
         uint16_t uuid = BUILD_UINT16(pAttr->type.uuid[0], pAttr->type.uuid[1]);
-        
+
         switch(uuid)
         {
             case RDSSPROFILE_CHAR4_UUID://发送数据

@@ -43,6 +43,8 @@ extern "C" {
 #define CONTROLPROFILE_CHAR3         2           // RW uint8_t - Profile Characteristic 3 value
 #define CONTROLPROFILE_CHAR4         3           // RW uint8_t - Profile Characteristic 4 value
 #define CONTROLPROFILE_CHAR5         4           // RW uint8_t - Profile Characteristic 5 value
+#define CONTROLPROFILE_CHAR6         5           // RW uint8_t - Profile Characteristic 6 value
+#define CONTROLPROFILE_CHAR7         6           // RW uint8_t - Profile Characteristic 7 value
 
 #define RDSSPROFILE_CHAR1            0           // RW uint8_t - Profile Characteristic 1 value
 #define RDSSPROFILE_CHAR2            1           // RW uint8_t - Profile Characteristic 2 value
@@ -70,6 +72,8 @@ extern "C" {
 #define CONTROLPROFILE_CHAR3_UUID    0x4003 //SOS开关
 #define CONTROLPROFILE_CHAR4_UUID    0x4004 //RDSS过检开关
 #define CONTROLPROFILE_CHAR5_UUID    0x4005 //RDSS复位开关
+#define CONTROLPROFILE_CHAR6_UUID    0x4006 //位置定时发送
+#define CONTROLPROFILE_CHAR7_UUID    0x4007 //直接发送位置
 
 //CARD Profile Service UUID
 #define CARDPROFILE_SERV_UUID         0x4100
@@ -113,6 +117,8 @@ extern "C" {
 #define CONTROLPROFILE_CHAR3_LEN     1
 #define CONTROLPROFILE_CHAR4_LEN     1
 #define CONTROLPROFILE_CHAR5_LEN     1
+#define CONTROLPROFILE_CHAR6_LEN     4
+#define CONTROLPROFILE_CHAR7_LEN     1
 //GNSS命令
 #define GNSSPROFILE_CHAR1_LEN     12
 #define GNSSPROFILE_CHAR2_LEN     40
