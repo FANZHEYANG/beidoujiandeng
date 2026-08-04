@@ -47,6 +47,7 @@
 #define SBP_PHY_UPDATE_DELAY                 2400
 
 #define BLE_RECONNECT_SUPPRESS_PERIOD       MS1_TO_SYSTEM_TIME(2000)
+#define BLE_AUTO_POWEROFF_PERIOD           MS1_TO_SYSTEM_TIME(15 * 60 * 1000)
 
 // What is the advertising interval when device is discoverable (units of 625us, 80=50ms)
 #define DEFAULT_ADVERTISING_INTERVAL         80
@@ -179,6 +180,8 @@ static void Peripheral_ProcessTMOSMsg(tmos_event_hdr_t *pMsg);
 static void peripheralStateNotificationCB(gapRole_States_t newState, gapRoleEvent_t *pEvent);
 static void peripheralScheduleDisconnectVoice(void);
 static void peripheralHandleConnectedVoice(void);
+static void peripheralScheduleAutoPowerOff(void);
+static void peripheralCancelAutoPowerOff(void);
 static void performPeriodicTask(void);
 static void simpleProfileChangeCB(uint8_t paramID, uint8_t *pValue, uint16_t len);
 static void peripheralParamUpdateCB(uint16_t connHandle, uint16_t connInterval,
@@ -416,6 +419,21 @@ static void peripheralInitConnItem(peripheralConnItem_t *peripheralConnList)
     peripheralConnList->connTimeout = 0;
 }
 
+static void peripheralScheduleAutoPowerOff(void)
+{
+    if(ble_soft_off != FALSE)
+    {
+        return;
+    }
+
+    tmos_start_task(Peripheral_TaskID, SBP_BLE_AUTO_POWEROFF_EVT, BLE_AUTO_POWEROFF_PERIOD);
+}
+
+static void peripheralCancelAutoPowerOff(void)
+{
+    tmos_stop_task(Peripheral_TaskID, SBP_BLE_AUTO_POWEROFF_EVT);
+}
+
 static void peripheralScheduleDisconnectVoice(void)
 {
     if(ble_soft_off != FALSE)
@@ -424,6 +442,7 @@ static void peripheralScheduleDisconnectVoice(void)
     }
 
     ble_disconnect_voice_pending = TRUE;
+    peripheralScheduleAutoPowerOff();
     tmos_start_task(Peripheral_TaskID, SBP_BLE_DISCONNECT_VOICE_EVT, BLE_RECONNECT_SUPPRESS_PERIOD);
 }
 
@@ -433,6 +452,8 @@ static void peripheralHandleConnectedVoice(void)
     {
         return;
     }
+
+    peripheralCancelAutoPowerOff();
 
     if(ble_disconnect_voice_pending != FALSE)
     {
@@ -530,6 +551,15 @@ uint16_t Peripheral_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ SBP_READ_RSSI_EVT);
     }
 
+    if(events & SBP_BLE_AUTO_POWEROFF_EVT)
+    {
+        if((ble_soft_off == FALSE) && (peripheralConnList.connHandle == GAP_CONNHANDLE_INIT))
+        {
+            Pwr_RequestAutoPowerOff();
+        }
+
+        return (events ^ SBP_BLE_AUTO_POWEROFF_EVT);
+    }
     if(events & SBP_BLE_DISCONNECT_VOICE_EVT)
     {
         if(ble_disconnect_voice_pending != FALSE)
@@ -1517,6 +1547,7 @@ void Peripheral_BleOff(void)
     ble_soft_off = TRUE;
     ble_disconnect_voice_pending = FALSE;
     tmos_stop_task(Peripheral_TaskID, SBP_BLE_DISCONNECT_VOICE_EVT);
+    peripheralCancelAutoPowerOff();
 
     GAPRole_SetParameter(GAPROLE_ADVERT_ENABLED, sizeof(uint8_t), &advertising_enable);
 

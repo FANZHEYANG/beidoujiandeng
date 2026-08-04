@@ -24,6 +24,7 @@ def main():
     pwr_init = pwr_c[pwr_c.index("void Pwr_init"):pwr_c.index("//BAT ADC")]
     queue_voice = pwr_c[pwr_c.index("static uint8_t Pwr_QueueVoiceText"):pwr_c.index("uint8_t Pwr_RequestVoiceText")]
     sos_event = pwr_c[pwr_c.index("if(events & sos_evt)"):pwr_c.index("if(events & key1_evt)")]
+    pwr_process = pwr_c[pwr_c.index("uint16_t Pwr_ProcessEvent"):pwr_c.index("void Pwr_init")]
     peripheral_state_start = peripheral_c.rindex("static void peripheralStateNotificationCB")
     peripheral_state = peripheral_c[
         peripheral_state_start:
@@ -52,6 +53,17 @@ def main():
     assert "Pwr_RequestVoiceText(" not in peripheral_state, "BLE state callback must not queue voice before debounce"
     assert "peripheralScheduleDisconnectVoice();" in peripheral_state, "disconnect callback must schedule delayed voice"
     assert "peripheralHandleConnectedVoice();" in peripheral_state, "connect callback must use debounce helper"
+    assert "Pwr_RequestAutoPowerOff" in pwr_h, "PWR.h must expose auto power-off request API"
+    assert "void Pwr_RequestAutoPowerOff(void)" in pwr_c, "PWR.c must implement auto power-off request API"
+    assert "auto_poweroff_evt" in pwr_h, "PWR must have an auto power-off task event"
+    assert "auto_poweroff_evt" in pwr_process, "PWR task must handle auto power-off event"
+    assert "SoftPowerOff();" in pwr_process, "auto power-off must use the existing soft power-off path"
+    assert "SBP_BLE_AUTO_POWEROFF_EVT" in peripheral_h, "BLE app must have a 15-minute auto power-off event"
+    assert "BLE_AUTO_POWEROFF_PERIOD" in peripheral_c, "BLE auto power-off delay must be named"
+    assert "MS1_TO_SYSTEM_TIME(15 * 60 * 1000)" in peripheral_c, "BLE auto power-off delay must be 15 minutes"
+    assert "peripheralScheduleAutoPowerOff" in peripheral_c, "BLE disconnect must schedule auto power-off"
+    assert "peripheralCancelAutoPowerOff" in peripheral_c, "BLE reconnect must cancel auto power-off"
+    assert "Pwr_RequestAutoPowerOff();" in peripheral_c, "BLE auto power-off event must request PWR soft shutdown"
 
 
 if __name__ == "__main__":

@@ -63,6 +63,7 @@ extern uint8_t Pwr_RequestVoiceText(const char *text);
 extern void Pwr_Key1Pressed(void);
 extern void Pwr_OnGnssFixUpdate(uint8_t fixed);
 extern void Pwr_OnRdssMessageReceived(uint32_t sender);
+extern void Pwr_RequestAutoPowerOff(void);
 
 
 
@@ -73,6 +74,7 @@ extern void Pwr_OnRdssMessageReceived(uint32_t sender);
 #define pwroff_evt               0x0008  //电池电量采集
 #define key1_evt                 0x0010  //KEY1短按/长按检测
 #define sos_alarm_evt            0x0020  //SOS报警状态机
+#define auto_poweroff_evt        0x0040  //蓝牙断开15分钟自动关机
 
 //初始化，注册task
 extern void Pwr_init(void);

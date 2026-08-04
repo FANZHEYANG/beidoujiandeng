@@ -662,6 +662,13 @@ static void SoftPowerOff(void)
     tmos_stop_task(Bat_TaskID, bat_evt);
 }
 
+void Pwr_RequestAutoPowerOff(void)
+{
+    if(soft_power_off == 0)
+    {
+        tmos_start_task(Pwr_TaskID, auto_poweroff_evt, 1);
+    }
+}
 static void SoftPowerOn(void)
 {
     soft_power_off = 0;
@@ -768,6 +775,14 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ sos_alarm_evt);
     }
 
+    if(events & auto_poweroff_evt)
+    {
+        if(soft_power_off == 0)
+        {
+            SoftPowerOff();
+        }
+        return (events ^ auto_poweroff_evt);
+    }
     if(events & pwroff_evt)
     {
         if(PWR_SW_Flag == TRUE)
