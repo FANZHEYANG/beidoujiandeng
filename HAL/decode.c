@@ -646,12 +646,8 @@ void CLR_Buf_GSV(void)                           // 串口缓存清理
 	memset(USART_RX_BUF1_GSV, 0, USART_REC_LEN_GSV);      //清空                
 }
 
-void clrStruct()
+static void clearGpsParsedFields(void)
 {
-	Save_Data.isGetData = false;
-	Save_Data.isParseData = false;
-	Save_Data.isUsefull = false;
-	memset(Save_Data.GPS_Buffer, 0, GPS_Buffer_Length);      //清空
 	memset(Save_Data.UTCTime, 0, UTCTime_Length);
 	memset(Save_Data.latitude, 0, latitude_Length);
 	memset(Save_Data.N_S, 0, N_S_Length);
@@ -664,6 +660,48 @@ void clrStruct()
 	memset(Save_Data.dgps_age, 0, dgps_age_Length);
 }
 
+static void clearGgaPositionFields(void)
+{
+	GGA.latitude = 0.0f;
+	GGA.longitude = 0.0f;
+	GGA.satellites_tracked = 0;
+	GGA.hdop = 0.0f;
+	GGA.altitude = 0.0f;
+	GGA.height = 0.0f;
+	GGA.dgps_age = 0.0f;
+}
+
+static void gnssCopyField(uint8_t *dst, uint8_t dst_len, const char *start, const char *end)
+{
+	uint16_t len;
+
+	if(dst == NULL || start == NULL || end == NULL || dst_len == 0 || end < start)
+	{
+		return;
+	}
+
+	len = (uint16_t)(end - start);
+	if(len >= dst_len)
+	{
+		len = dst_len - 1;
+	}
+
+	memset(dst, 0, dst_len);
+	if(len > 0)
+	{
+		memcpy(dst, start, len);
+	}
+}
+
+void clrStruct()
+{
+	Save_Data.isGetData = false;
+	Save_Data.isParseData = false;
+	Save_Data.isUsefull = false;
+	memset(Save_Data.GPS_Buffer, 0, GPS_Buffer_Length);      //清空
+	clearGpsParsedFields();
+}
+
 // 解析 GGA → GGA 结构体
 void parseGpsBuffer()
 {
@@ -674,8 +712,11 @@ void parseGpsBuffer()
 	if (Save_Data.isGetData)
 	{
 		Save_Data.isGetData = false;
+		Save_Data.isParseData = false;
 		Save_Data.isUsefull = false;
+		GGA.fix_quality = 0;
         gga_point1 = 0;
+		clearGpsParsedFields();
 		
 		for (i = 0 ; i <= 13 ; i++)
 		{
@@ -690,7 +731,6 @@ void parseGpsBuffer()
 				subStringNext = strstr(subString, ",");
 				if (subStringNext != NULL || i == 13)
 				{
-					char usefullBuffer[2],mBuffer[2];
 					char *field_end = subStringNext;
 
 					if(i == 13 && field_end == NULL)
@@ -704,26 +744,27 @@ void parseGpsBuffer()
 					}
 					switch(i)
 					{
-						case 1:memcpy(Save_Data.UTCTime, subString, field_end - subString);break;
-						case 2:memcpy(Save_Data.latitude, subString, field_end - subString);break;
-						case 3:memcpy(Save_Data.N_S, subString, field_end - subString);break;
-						case 4:memcpy(Save_Data.longitude, subString, field_end - subString);break;
-						case 5:memcpy(Save_Data.E_W, subString, field_end - subString);break;
+						case 1:gnssCopyField(Save_Data.UTCTime, UTCTime_Length, subString, field_end);break;
+						case 2:gnssCopyField(Save_Data.latitude, latitude_Length, subString, field_end);break;
+						case 3:gnssCopyField(Save_Data.N_S, N_S_Length, subString, field_end);break;
+						case 4:gnssCopyField(Save_Data.longitude, longitude_Length, subString, field_end);break;
+						case 5:gnssCopyField(Save_Data.E_W, E_W_Length, subString, field_end);break;
 						case 6:
-							memcpy(usefullBuffer, subString, field_end - subString);
-							if(usefullBuffer[0] == '1')
-								Save_Data.isUsefull = true;
-							else
-								Save_Data.isUsefull = false;
-							GGA.fix_quality = Save_Data.isUsefull ? 1 : 0;
+						{
+							uint8_t usefullBuffer[4] = {0};
+
+							gnssCopyField(usefullBuffer, sizeof(usefullBuffer), subString, field_end);
+							GGA.fix_quality = atoi((char *)usefullBuffer);
+							Save_Data.isUsefull = (GGA.fix_quality > 0) ? true : false;
 							break;
-						case 7:memcpy(Save_Data.satellites_tracked, subString, field_end - subString);break;
-						case 8:memcpy(Save_Data.hdop, subString, field_end - subString);break;
-						case 9:memcpy(Save_Data.altitude, subString, field_end - subString);break;
-						case 10:memcpy(mBuffer, subString, field_end - subString);break;
-						case 11:memcpy(Save_Data.height, subString, field_end - subString);break;
-						case 12:memcpy(mBuffer, subString, field_end - subString);break;
-						case 13:memcpy(Save_Data.dgps_age, subString, field_end - subString);break;
+						}
+						case 7:gnssCopyField(Save_Data.satellites_tracked, satellites_tracked_Length, subString, field_end);break;
+						case 8:gnssCopyField(Save_Data.hdop, hdop_Length, subString, field_end);break;
+						case 9:gnssCopyField(Save_Data.altitude, altitude_Length, subString, field_end);break;
+						case 10:break;
+						case 11:gnssCopyField(Save_Data.height, height_Length, subString, field_end);break;
+						case 12:break;
+						case 13:gnssCopyField(Save_Data.dgps_age, dgps_age_Length, subString, field_end);break;
 						default:break;
 					}
 
@@ -774,6 +815,10 @@ void printGpsBuffer()
 			GGA.altitude = atof(Save_Data.altitude);
 			GGA.height = atof(Save_Data.height);
 			GGA.dgps_age = atof(Save_Data.dgps_age);
+		}
+		else
+		{
+			clearGgaPositionFields();
 		}
 
 		PRINT("\r\n[GNSS GGA] fix=%d lat=%f lon=%f sats=%d\r\n",

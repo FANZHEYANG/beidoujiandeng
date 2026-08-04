@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,9 +17,11 @@ def read_text(path):
 def main():
     pwr_h = read_text("HAL/include/PWR.h")
     pwr_c = read_text("HAL/PWR.c")
+    decode_c = read_text("HAL/decode.c")
     mcu_c = read_text("HAL/MCU.c")
     peripheral_h = read_text("Peripheral/APP/include/peripheral.h")
     peripheral_c = read_text("Peripheral/APP/peripheral.c")
+    gattprofile_h = read_text("Peripheral/Profile/include/gattprofile.h")
     soft_power_on = pwr_c[pwr_c.index("static void SoftPowerOn"):pwr_c.index("//PWR ADC")]
     pwr_init = pwr_c[pwr_c.index("void Pwr_init"):pwr_c.index("//BAT ADC")]
     queue_voice = pwr_c[pwr_c.index("static uint8_t Pwr_QueueVoiceText"):pwr_c.index("uint8_t Pwr_RequestVoiceText")]
@@ -45,6 +47,23 @@ def main():
     ble_on = peripheral_c[
         peripheral_c.index("void Peripheral_BleOn"):
         peripheral_c.index("/*********************************************************************", peripheral_c.index("void Peripheral_BleOn"))
+    ]
+    periodic_task_start = peripheral_c.rindex("static void performPeriodicTask")
+    periodic_task = peripheral_c[
+        periodic_task_start:
+        peripheral_c.index("/*********************************************************************", periodic_task_start)
+    ]
+    parse_gga = decode_c[
+        decode_c.index("void parseGpsBuffer"):
+        decode_c.index("void printGpsBuffer")
+    ]
+    print_gga = decode_c[
+        decode_c.index("void printGpsBuffer"):
+        decode_c.index("uint16_t RNSS_ProcessEvent")
+    ]
+    clear_gps_fields = decode_c[
+        decode_c.index("static void clearGpsParsedFields"):
+        decode_c.index("static void clearGgaPositionFields")
     ]
 
     assert "Pwr_RequestVoiceText" in pwr_h, "PWR.h must expose the voice queue API"
@@ -92,6 +111,25 @@ def main():
     assert "peripheralSetSatelliteModules(FALSE);" in ble_off, "BLE off must disable RNSS/RDSS"
     assert "peripheralSetSatelliteModules(FALSE);" in ble_on, "BLE on must start advertising with RNSS/RDSS off"
     assert "peripheralRdssSnrNotify(snr, RDSSPROFILE_CHAR3_LEN);" in peripheral_c, "0x4503 notify must keep using parsed RDSS SNR"
+    assert "#define GNSSPROFILE_CHAR1_LEN     12" in gattprofile_h, "0x2A6A must keep the 12-byte RNSS SNR format"
+    assert "#define GNSSPROFILE_CHAR2_LEN     40" in gattprofile_h, "0x2A67 must keep the 40-byte RNSS GGA format"
+    assert "Save_GSV_Data.satellites[i].snr" in periodic_task, "0x2A6A notify must use parsed GSV SNR values"
+    assert "peripheralGnssChar1Notify(gnssData1, GNSSPROFILE_CHAR1_LEN);" in periodic_task, "RNSS SNR must be notified on 0x2A6A"
+    assert "GGA.latitude" in periodic_task and "GGA.longitude" in periodic_task, "0x2A67 must carry parsed decimal-degree coordinates"
+    assert "peripheralGnssChar2Notify(gnssData2, GNSSPROFILE_CHAR2_LEN);" in periodic_task, "RNSS GGA must be notified on 0x2A67"
+    assert "static void clearGpsParsedFields" in decode_c, "each new GGA frame must clear old parsed text fields"
+    assert "memset(Save_Data.UTCTime, 0, UTCTime_Length);" in clear_gps_fields, "GGA text-field clear helper must clear UTC time"
+    assert clear_gps_fields.count("clearGpsParsedFields();") == 0, "GGA text-field clear helper must not recurse"
+    assert "static void clearGgaPositionFields" in decode_c, "invalid GGA fixes must clear old output coordinates"
+    assert "static void gnssCopyField" in decode_c, "GGA parser must copy fields with bounds and null termination"
+    assert "clearGpsParsedFields();" in parse_gga, "GGA parser must clear old text fields before parsing a new frame"
+    assert "Save_Data.isParseData = false;" in parse_gga, "GGA parser must not reuse a stale parsed flag"
+    assert "GGA.fix_quality = 0;" in parse_gga, "GGA parser must reset fix quality before parsing a new frame"
+    assert "GGA.fix_quality = atoi((char *)usefullBuffer);" in parse_gga, "GGA parser must preserve the module fix-quality value"
+    assert "Save_Data.isUsefull = (GGA.fix_quality > 0) ? true : false;" in parse_gga, "any non-zero GGA fix quality must be treated as located"
+    assert "gnssCopyField(Save_Data.latitude, latitude_Length, subString, field_end);" in parse_gga, "latitude field must be copied safely"
+    assert "gnssCopyField(Save_Data.longitude, longitude_Length, subString, field_end);" in parse_gga, "longitude field must be copied safely"
+    assert "clearGgaPositionFields();" in print_gga, "unfixed GGA output must not keep old coordinates"
 
 
 if __name__ == "__main__":
