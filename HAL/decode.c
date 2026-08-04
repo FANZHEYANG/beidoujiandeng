@@ -51,6 +51,7 @@ static uint8_t gnss_ring_has_echo(void)
 uint8_t  RD_rxflag = 0;
 uint8_t  RD_txflag = 0;
 uint8_t  RD_tx_ack_dirty = 0;
+uint8_t  RD_msg_rx_dirty = 0;
 uint16_t RD_realsize = 0;
 
 _GGA GGA;
@@ -905,6 +906,40 @@ uint16_t RNSS_ProcessEvent(uint8_t task_id, uint16_t events)
     return 0;
 }
 
+uint16_t Rdss_SanitizePayloadLen(const uint8_t *payload, uint16_t len)
+{
+    uint16_t high_count = 0;
+    int16_t index;
+
+    if(len > RDSS_MSG_PAYLOAD_MAX)
+    {
+        len = RDSS_MSG_PAYLOAD_MAX;
+    }
+
+    if(payload == NULL || len == 0)
+    {
+        return 0;
+    }
+
+    index = (int16_t)(len - 1);
+    while(index >= 0 && (payload[index] & 0x80))
+    {
+        high_count++;
+        index--;
+    }
+
+    if((high_count & 0x01) != 0)
+    {
+        len--;
+    }
+
+    return len;
+}
+
+static void Rdss_ClearMsgRx(void)
+{
+    memset(&Msg_rx, 0, sizeof(Msg_rx));
+}
 //RDSS短报文信息采集事件
 uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
 {
@@ -932,10 +967,7 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
 		sprintf(strCCMSG,"$CCMSG,%s,%d,%d,", ICcard,Msg_tx.lf,Msg_tx.encode);//代码编码，最大发送78字节的用户内容
 												
         // 只发送App写入0x4504的正文，不追加心率/血氧/步数/卡路里。
-        if(Msg_tx.payload_len > 70)
-        {
-            Msg_tx.payload_len = 70;
-        }
+        Msg_tx.payload_len = Rdss_SanitizePayloadLen(Msg_tx.payload, (uint16_t)Msg_tx.payload_len);
 
         for(i = 0; i < Msg_tx.payload_len; i++)
         {
@@ -1015,6 +1047,7 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
         //接收到短报文，比如:$BDMXX,1850000,054650,2,1234567890ABCDEF*41\r\n 		
         else if(strstr((char *)RD_PARSE_BUF,"$BDMXX"))
         {
+            Rdss_ClearMsgRx();
             p1=strstr((char *)RD_PARSE_BUF,"$BDMXX");
             RD_result=strtok(p1, delims);//$BDMXX
             RD_result=strtok(NULL, delims);//发信人地址ID
@@ -1064,7 +1097,7 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
                     memset(Msg_rx.payload, 0, sizeof(Msg_rx.payload));
                     j=0;
 
-                    for(i=coding_flag; i<strlen(RD_result) && j<70; i=i+2)
+                    for(i=coding_flag; (i + 1)<strlen(RD_result) && j<RDSS_MSG_PAYLOAD_MAX; i=i+2)
                     {
                         memset(byte, 0, sizeof(byte));
                         strncpy(byte, RD_result+i, 2);
@@ -1073,7 +1106,8 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
                         Msg_rx.payload[j]=strstr_show[j];
                         j++;
                     }
-                    Msg_rx.payload_len = j;
+                    Msg_rx.payload_len = Rdss_SanitizePayloadLen(Msg_rx.payload, j);
+                    RD_msg_rx_dirty = 1;
 
                     PRINT("\r\n[RDSS RX BDMXX] sender=%lu time=%02d:%02d:%02d encode=%d payload_len=%lu\r\n",
                           (unsigned long)Msg_rx.sender, Msg_rx.hour, Msg_rx.minute, Msg_rx.second,

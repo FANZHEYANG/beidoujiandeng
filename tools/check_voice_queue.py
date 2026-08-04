@@ -21,6 +21,7 @@ def main():
     mcu_c = read_text("HAL/MCU.c")
     peripheral_h = read_text("Peripheral/APP/include/peripheral.h")
     peripheral_c = read_text("Peripheral/APP/peripheral.c")
+    gattprofile_c = read_text("Peripheral/Profile/gattprofile.c")
     gattprofile_h = read_text("Peripheral/Profile/include/gattprofile.h")
     soft_power_on = pwr_c[pwr_c.index("static void SoftPowerOn"):pwr_c.index("//PWR ADC")]
     pwr_init = pwr_c[pwr_c.index("void Pwr_init"):pwr_c.index("//BAT ADC")]
@@ -60,6 +61,27 @@ def main():
     print_gga = decode_c[
         decode_c.index("void printGpsBuffer"):
         decode_c.index("uint16_t RNSS_ProcessEvent")
+    ]
+    rdss_process = decode_c[
+        decode_c.index("uint16_t RDSS_ProcessEvent"):
+        decode_c.index("void RDSS_init")
+    ]
+    rdss_write_4504 = gattprofile_c[
+        gattprofile_c.index("case RDSSPROFILE_CHAR4_UUID"):
+        gattprofile_c.index("case GATT_CLIENT_CHAR_CFG_UUID", gattprofile_c.index("case RDSSPROFILE_CHAR4_UUID"))
+    ]
+    rdss_read_4506 = gattprofile_c[
+        gattprofile_c.index("case RDSSPROFILE_CHAR6_UUID"):
+        gattprofile_c.index("case RDSSPROFILE_CHAR7_UUID", gattprofile_c.index("case RDSSPROFILE_CHAR6_UUID"))
+    ]
+    rdss_notify_all = peripheral_c[
+        peripheral_c.index("static void sendRdssNotifications"):
+        peripheral_c.index("void Peripheral_BleOff")
+    ]
+    sos_queue_start = pwr_c.index("static uint8_t Pwr_QueueSosMessage")
+    sos_queue = pwr_c[
+        sos_queue_start:
+        pwr_c.index("static void Pwr_StartSosAlarm", sos_queue_start)
     ]
     clear_gps_fields = decode_c[
         decode_c.index("static void clearGpsParsedFields"):
@@ -130,6 +152,29 @@ def main():
     assert "gnssCopyField(Save_Data.latitude, latitude_Length, subString, field_end);" in parse_gga, "latitude field must be copied safely"
     assert "gnssCopyField(Save_Data.longitude, longitude_Length, subString, field_end);" in parse_gga, "longitude field must be copied safely"
     assert "clearGgaPositionFields();" in print_gga, "unfixed GGA output must not keep old coordinates"
+    assert "#define RDSS_MSG_PAYLOAD_MAX 70" in pwr_h or "#define RDSS_MSG_PAYLOAD_MAX 70" in read_text("HAL/include/decode.h"), "RDSS SMS payload limit must be named"
+    assert "RDSS_ACK_REASON_PAYLOAD_TOO_LONG" in read_text("HAL/include/decode.h"), "oversized SMS writes must have a local ACK reason"
+    assert "uint16_t Rdss_SanitizePayloadLen" in read_text("HAL/include/decode.h"), "RDSS payload length sanitizer must be public"
+    assert "uint16_t Rdss_SanitizePayloadLen" in decode_c, "RDSS payload length sanitizer must be implemented"
+    assert "RD_msg_rx_dirty" in read_text("HAL/include/decode.h"), "new inbound SMS state must be exposed"
+    assert "uint8_t  RD_msg_rx_dirty = 0;" in decode_c, "new inbound SMS state must be stored"
+    assert "payload[RDSS_MSG_PAYLOAD_MAX]" in read_text("HAL/include/decode.h"), "outbound SMS buffer must use the named limit"
+    assert "Msg_tx.payload_len = Rdss_SanitizePayloadLen" in rdss_write_4504, "4504 writes must sanitize GB2312 payload boundaries"
+    assert "requested_payload_len" in rdss_write_4504, "4504 writes must compare requested and accepted payload lengths"
+    assert "Tx_ack.reason = RDSS_ACK_REASON_PAYLOAD_TOO_LONG;" in rdss_write_4504, "oversized 4504 writes must report failure to APP"
+    assert "RD_tx_ack_dirty = 1;" in rdss_write_4504, "local 4504 failures must trigger 4505 notify"
+    assert "RD_txflag = true;" in rdss_write_4504, "valid 4504 writes must still queue DM229 transmission"
+    assert "Msg_tx.payload_len = Rdss_SanitizePayloadLen" in rdss_process, "DM229 transmit path must keep payload on a safe boundary"
+    assert "Rdss_ClearMsgRx();" in rdss_process, "BDMXX parsing must clear stale inbound SMS fields"
+    assert "RD_msg_rx_dirty = 1;" in rdss_process, "new BDMXX messages must mark 4506 dirty"
+    assert "j<RDSS_MSG_PAYLOAD_MAX" in rdss_process, "BDMXX payload copied to APP must stay within 4506 payload capacity"
+    assert "if(RD_msg_rx_dirty)" in rdss_notify_all, "4506 must notify only after a new inbound SMS"
+    assert "RD_msg_rx_dirty = 0;" in rdss_notify_all, "4506 dirty flag must clear after notify succeeds"
+    assert "memset(read_data6, 0, RDSSPROFILE_CHAR6_LEN);" in rdss_read_4506, "4506 reads must not leak stale payload bytes"
+    assert "payload_copy_len = Rdss_SanitizePayloadLen" in rdss_read_4506, "4506 reads must publish a safe payload length"
+    assert "SOS,LAT=%s,LON=%s,HR=0,O2=0,STEP=0,KCAL=0" in sos_queue, "SOS SMS must include position and vital placeholders without Chinese text"
+    assert "payload[RDSS_MSG_PAYLOAD_MAX + 1]" in sos_queue, "SOS SMS buffer must fit the full RDSS payload plus terminator"
+    assert "Pwr_StopSosAlarm(SOS_EXIT_SEND_MAX);" in sos_queue, "SOS must still exit after the configured send limit"
 
 
 if __name__ == "__main__":

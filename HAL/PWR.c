@@ -276,7 +276,7 @@ static uint8_t Pwr_QueueSosMessage(void)
 {
     char lat[16] = {0};
     char lon[16] = {0};
-    char payload[70] = {0};
+    char payload[RDSS_MSG_PAYLOAD_MAX + 1] = {0};
     uint32_t dest_card;
     uint16_t len;
 
@@ -294,12 +294,8 @@ static uint8_t Pwr_QueueSosMessage(void)
 
     Pwr_FormatCoord(lat, GGA.latitude);
     Pwr_FormatCoord(lon, GGA.longitude);
-    sprintf(payload, "SOS,LAT=%s,LON=%s", lat, lon);
-    len = strlen(payload);
-    if(len > sizeof(Msg_tx.payload))
-    {
-        len = sizeof(Msg_tx.payload);
-    }
+    sprintf(payload, "SOS,LAT=%s,LON=%s,HR=0,O2=0,STEP=0,KCAL=0", lat, lon);
+    len = Rdss_SanitizePayloadLen((uint8_t *)payload, strlen(payload));
 
     Msg_tx.lf = SOS_MSG_LF;
     Msg_tx.encode = SOS_MSG_ENCODE;

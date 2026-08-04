@@ -47,7 +47,7 @@
 #define SBP_PHY_UPDATE_DELAY                 2400
 
 #define BLE_RECONNECT_SUPPRESS_PERIOD       MS1_TO_SYSTEM_TIME(2000)
-#define BLE_AUTO_POWEROFF_PERIOD           MS1_TO_SYSTEM_TIME(1 * 60 * 1000)//待机时间
+#define BLE_AUTO_POWEROFF_PERIOD           MS1_TO_SYSTEM_TIME(15 * 60 * 1000)//待机时间
 
 // What is the advertising interval when device is discoverable (units of 625us, 80=50ms)
 #define DEFAULT_ADVERTISING_INTERVAL         80
@@ -201,7 +201,7 @@ static void peripheralGnssChar2Notify(uint8_t *pValue, uint16_t len);
 static void peripheralRdssCardNotify(uint8_t *pValue, uint16_t len);
 static void peripheralRdssSnrNotify(uint8_t *pValue, uint16_t len);
 static uint8_t peripheralRdssTxAckNotify(uint8_t *pValue, uint16_t len);
-static void peripheralRdssMsgRxNotify(uint8_t *pValue, uint16_t len);
+static uint8_t peripheralRdssMsgRxNotify(uint8_t *pValue, uint16_t len);
 static void peripheralRdssFreqNotify(uint8_t *pValue, uint16_t len);
 static void sendRdssNotifications(void);
 
@@ -1397,24 +1397,28 @@ static uint8_t peripheralRdssTxAckNotify(uint8_t *pValue, uint16_t len)
 }
 
 //RDSS MSG RX notify
-static void peripheralRdssMsgRxNotify(uint8_t *pValue, uint16_t len)
+static uint8_t peripheralRdssMsgRxNotify(uint8_t *pValue, uint16_t len)
 {
     attHandleValueNoti_t noti;
+    bStatus_t status;
     if(len > (peripheralMTU - 3))
     {
         PRINT("Too large noti\n");
-        return;
+        return bleInvalidRange;
     }
     noti.len = len;
     noti.pValue = GATT_bm_alloc(peripheralConnList.connHandle, ATT_HANDLE_VALUE_NOTI, noti.len, NULL, 0);
     if(noti.pValue)
     {
         tmos_memcpy(noti.pValue, pValue, noti.len);
-        if(rdssProfile_Notify6(peripheralConnList.connHandle, &noti) != SUCCESS)
+        status = rdssProfile_Notify6(peripheralConnList.connHandle, &noti);
+        if(status != SUCCESS)
         {
             GATT_bm_free((gattMsg_t *)&noti, ATT_HANDLE_VALUE_NOTI);
         }
+        return status;
     }
+    return bleMemAllocError;
 }
 
 //RDSS Frequency Countdown notify
@@ -1524,35 +1528,36 @@ static void sendRdssNotifications(void)
     peripheralRdssSnrNotify(snr, RDSSPROFILE_CHAR3_LEN);
 
 
-    // RDSS Char6
-    rdssMsgRxData[0] = (uint8_t)(Msg_rx.sender & 0x000000FF);
-    rdssMsgRxData[1] = (uint8_t)((Msg_rx.sender & 0x0000FF00) >> 8);
-    rdssMsgRxData[2] = (uint8_t)((Msg_rx.sender & 0x00FF0000) >> 16);
-    rdssMsgRxData[3] = (uint8_t)((Msg_rx.sender & 0xFF000000) >> 24);
-    rdssMsgRxData[4] = Msg_rx.hour;
-    rdssMsgRxData[5] = Msg_rx.minute;
-    rdssMsgRxData[6] = Msg_rx.second;
-    rdssMsgRxData[7] = Msg_rx.encode;
-    rdssMsgRxData[8] = (uint8_t)(Msg_rx.mailtype & 0x000000FF);
-    rdssMsgRxData[9] = (uint8_t)((Msg_rx.mailtype & 0x0000FF00) >> 8);
-    rdssMsgRxData[10] = (uint8_t)((Msg_rx.mailtype & 0x00FF0000) >> 16);
-    rdssMsgRxData[11] = (uint8_t)((Msg_rx.mailtype & 0xFF000000) >> 24);
-    rdssMsgRxData[12] = (uint8_t)(Msg_rx.payload_len & 0x000000FF);
-    rdssMsgRxData[13] = (uint8_t)((Msg_rx.payload_len & 0x0000FF00) >> 8);
-    rdssMsgRxData[14] = (uint8_t)((Msg_rx.payload_len & 0x00FF0000) >> 16);
-    rdssMsgRxData[15] = (uint8_t)((Msg_rx.payload_len & 0xFF000000) >> 24);
-    payload_copy_len = Msg_rx.payload_len;
-    if(payload_copy_len > 70)
+    // RDSS Char6: only notify when a new DM229 $BDMXX message is parsed.
+    if(RD_msg_rx_dirty)
     {
-        payload_copy_len = 70;
+        rdssMsgRxData[0] = (uint8_t)(Msg_rx.sender & 0x000000FF);
+        rdssMsgRxData[1] = (uint8_t)((Msg_rx.sender & 0x0000FF00) >> 8);
+        rdssMsgRxData[2] = (uint8_t)((Msg_rx.sender & 0x00FF0000) >> 16);
+        rdssMsgRxData[3] = (uint8_t)((Msg_rx.sender & 0xFF000000) >> 24);
+        rdssMsgRxData[4] = Msg_rx.hour;
+        rdssMsgRxData[5] = Msg_rx.minute;
+        rdssMsgRxData[6] = Msg_rx.second;
+        rdssMsgRxData[7] = Msg_rx.encode;
+        rdssMsgRxData[8] = (uint8_t)(Msg_rx.mailtype & 0x000000FF);
+        rdssMsgRxData[9] = (uint8_t)((Msg_rx.mailtype & 0x0000FF00) >> 8);
+        rdssMsgRxData[10] = (uint8_t)((Msg_rx.mailtype & 0x00FF0000) >> 16);
+        rdssMsgRxData[11] = (uint8_t)((Msg_rx.mailtype & 0xFF000000) >> 24);
+        payload_copy_len = Rdss_SanitizePayloadLen(Msg_rx.payload, (uint16_t)Msg_rx.payload_len);
+        rdssMsgRxData[12] = (uint8_t)(payload_copy_len & 0x000000FF);
+        rdssMsgRxData[13] = (uint8_t)((payload_copy_len & 0x0000FF00) >> 8);
+        rdssMsgRxData[14] = (uint8_t)((payload_copy_len & 0x00FF0000) >> 16);
+        rdssMsgRxData[15] = (uint8_t)((payload_copy_len & 0xFF000000) >> 24);
+        for(i = 0; i < payload_copy_len; i++)
+        {
+            rdssMsgRxData[16 + i] = Msg_rx.payload[i];
+        }
+        if(peripheralRdssMsgRxNotify(rdssMsgRxData, RDSSPROFILE_CHAR6_LEN) == SUCCESS)
+        {
+            RD_msg_rx_dirty = 0;
+        }
     }
-    for(i = 0; i < payload_copy_len; i++)
-    {
-        rdssMsgRxData[16 + i] = Msg_rx.payload[i];
-    }
-    peripheralRdssMsgRxNotify(rdssMsgRxData, RDSSPROFILE_CHAR6_LEN);
-
-    // RDSS Char7
+// RDSS Char7
     rdssFreqData[0] = (uint8_t)(frequency_count_down & 0x000000FF);
     rdssFreqData[1] = (uint8_t)((frequency_count_down & 0x0000FF00) >> 8);
     rdssFreqData[2] = (uint8_t)((frequency_count_down & 0x00FF0000) >> 16);

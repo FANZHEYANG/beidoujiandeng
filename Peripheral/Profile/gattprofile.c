@@ -2780,6 +2780,7 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 {
                     *pLen = maxLen;
                 }
+                memset(read_data6, 0, RDSSPROFILE_CHAR6_LEN);
                 read_data6[0] =(uint8_t) (Msg_rx.sender  & 0x000000FF);
                 read_data6[1] =(uint8_t) ((Msg_rx.sender & 0x0000FF00)>>8);
                 read_data6[2] =(uint8_t) ((Msg_rx.sender & 0x00FF0000)>>16);
@@ -2792,24 +2793,19 @@ static bStatus_t rdssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 read_data6[9] =(uint8_t) ((Msg_rx.mailtype & 0x0000FF00)>>8);
                 read_data6[10] =(uint8_t) ((Msg_rx.mailtype & 0x00FF0000)>>16);
                 read_data6[11] =(uint8_t) ((Msg_rx.mailtype & 0xFF000000)>>24);
-                read_data6[12] =(uint8_t) (Msg_rx.payload_len  & 0x000000FF);
-                read_data6[13] =(uint8_t) ((Msg_rx.payload_len & 0x0000FF00)>>8);
-                read_data6[14] =(uint8_t) ((Msg_rx.payload_len & 0x00FF0000)>>16);
-                read_data6[15] =(uint8_t) ((Msg_rx.payload_len & 0xFF000000)>>24);
                 {
-                    uint16_t payload_copy_len = Msg_rx.payload_len;
-                    if(payload_copy_len > 70)
-                    {
-                        payload_copy_len = 70;
-                    }
+                    uint16_t payload_copy_len;
+
+                    payload_copy_len = Rdss_SanitizePayloadLen(Msg_rx.payload, (uint16_t)Msg_rx.payload_len);
+                    read_data6[12] =(uint8_t) (payload_copy_len  & 0x000000FF);
+                    read_data6[13] =(uint8_t) ((payload_copy_len & 0x0000FF00)>>8);
+                    read_data6[14] =(uint8_t) ((payload_copy_len & 0x00FF0000)>>16);
+                    read_data6[15] =(uint8_t) ((payload_copy_len & 0xFF000000)>>24);
                     for(i=0; i<payload_copy_len; i++)
                     {
                         read_data6[16+i] = Msg_rx.payload[i];
                     }
                 }
-
-                // for(i=0; i<Msg_rx.payload_len; i++)		
-				// 	read_data6[16+i] = Msg_rx.payload[i];
 
                 tmos_memcpy(pValue, read_data6, *pLen);
                 
@@ -2883,7 +2879,9 @@ static bStatus_t rdssProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                 if(status == SUCCESS)
                 {
                     uint16_t copy_len = len;
+                    uint32_t requested_payload_len;
                     uint32_t app_payload_len;
+                    uint8_t payload_rejected = FALSE;
 
                     if(copy_len > RDSSPROFILE_CHAR4_LEN)
                     {
@@ -2912,19 +2910,21 @@ static bStatus_t rdssProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                         sprintf(DestIC, "%lu", (unsigned long)Msg_tx.dest_card);
                     }
 
-                    app_payload_len = ((uint32_t)pValue[8])//payload_len£¬Ð¡¶Ë
+                    requested_payload_len = ((uint32_t)pValue[8])//payload_len£¬Ð¡¶Ë
                                     |((uint32_t)pValue[9] << 8)
                                     |((uint32_t)pValue[10] << 16)
                                     |((uint32_t)pValue[11] << 24);
-                    if(app_payload_len > 70)
-                    {
-                        app_payload_len = 70;
-                    }
+                    app_payload_len = requested_payload_len;
                     if(app_payload_len > (uint32_t)(len - 12))
                     {
                         app_payload_len = len - 12;
+                        payload_rejected = TRUE;
                     }
-                    Msg_tx.payload_len = app_payload_len;
+                    Msg_tx.payload_len = Rdss_SanitizePayloadLen(&pValue[12], (uint16_t)app_payload_len);
+                    if(requested_payload_len != Msg_tx.payload_len)
+                    {
+                        payload_rejected = TRUE;
+                    }
 
                     memset(Msg_tx.payload, 0, sizeof(Msg_tx.payload));
                     for(i=0; i<Msg_tx.payload_len; i++)
@@ -2932,25 +2932,40 @@ static bStatus_t rdssProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                         Msg_tx.payload[i] = pValue[12+i];
                     }
 
-                    PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE OK]\r\n");
-                    PROFILE_DEBUG_PRINTF("len=%d\r\n", len);
-                    PROFILE_DEBUG_PRINTF("lf=%d\r\n", Msg_tx.lf);
-                    PROFILE_DEBUG_PRINTF("encode=%d\r\n", Msg_tx.encode);
-                    PROFILE_DEBUG_PRINTF("generation=%d\r\n", Msg_tx.generation);
-                    PROFILE_DEBUG_PRINTF("reserved=%d\r\n", Msg_tx.reservied);
-                    PROFILE_DEBUG_PRINTF("dest_card=%lu\r\n", (unsigned long)Msg_tx.dest_card);
-                    PROFILE_DEBUG_PRINTF("payload_len=%lu\r\n", (unsigned long)Msg_tx.payload_len);
-                    PROFILE_DEBUG_PRINTF("payload_hex=");
-                    for(i = 0; i < Msg_tx.payload_len; i++)
+                    if(payload_rejected)
                     {
-                        PROFILE_DEBUG_PRINTF("%02X ", Msg_tx.payload[i]);
+                        Tx_ack.ack = false;
+                        Tx_ack.reason = RDSS_ACK_REASON_PAYLOAD_TOO_LONG;
+                        memset(Tx_ack._unused, 0, sizeof(Tx_ack._unused));
+                        RD_tx_ack_dirty = 1;
+                        RD_txflag = false;
+                        PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE FAIL] payload_len=%lu accepted=%lu max=%d\r\n",
+                                             (unsigned long)requested_payload_len,
+                                             (unsigned long)Msg_tx.payload_len,
+                                             RDSS_MSG_PAYLOAD_MAX);
+                        notifyApp = RDSSPROFILE_CHAR5;
                     }
-                    PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE END]\r\n");
+                    else
+                    {
+                        PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE OK]\r\n");
+                        PROFILE_DEBUG_PRINTF("len=%d\r\n", len);
+                        PROFILE_DEBUG_PRINTF("lf=%d\r\n", Msg_tx.lf);
+                        PROFILE_DEBUG_PRINTF("encode=%d\r\n", Msg_tx.encode);
+                        PROFILE_DEBUG_PRINTF("generation=%d\r\n", Msg_tx.generation);
+                        PROFILE_DEBUG_PRINTF("reserved=%d\r\n", Msg_tx.reservied);
+                        PROFILE_DEBUG_PRINTF("dest_card=%lu\r\n", (unsigned long)Msg_tx.dest_card);
+                        PROFILE_DEBUG_PRINTF("payload_len=%lu\r\n", (unsigned long)Msg_tx.payload_len);
+                        PROFILE_DEBUG_PRINTF("payload_hex=");
+                        for(i = 0; i < Msg_tx.payload_len; i++)
+                        {
+                            PROFILE_DEBUG_PRINTF("%02X ", Msg_tx.payload[i]);
+                        }
+                        PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE END]\r\n");
 
-                    RD_txflag = true;
-                    PROFILE_DEBUG_PRINTF("[RDSS 4504 WRITE] RD_txflag=%d, wait RDSS task send\r\n", RD_txflag);
-
-                    notifyApp = RDSSPROFILE_CHAR4;
+                        RD_txflag = true;
+                        PROFILE_DEBUG_PRINTF("[RDSS 4504 WRITE] RD_txflag=%d, wait RDSS task send\r\n", RD_txflag);
+                        notifyApp = RDSSPROFILE_CHAR4;
+                    }
                 }
                 PROFILE_DEBUG_PRINTF("rdss_write\r\n");
             break;

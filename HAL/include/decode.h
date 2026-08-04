@@ -135,6 +135,8 @@ typedef struct card_info {
 #define REALERROR      1
 #define MIXCODING      2
 #define OTHERCODING    0
+#define RDSS_MSG_PAYLOAD_MAX 70
+#define RDSS_ACK_REASON_PAYLOAD_TOO_LONG 7
 //发送数据
 typedef struct msg_tx{
 	unsigned char lf;//入站频点
@@ -147,7 +149,7 @@ typedef struct msg_tx{
 	unsigned int kcal;//卡路里
 	unsigned int dest_card;//收信方卡号
 	unsigned int payload_len;//数据长度
-	unsigned char payload[70];//通信数据，发送报文信息
+	unsigned char payload[RDSS_MSG_PAYLOAD_MAX];//通信数据，发送报文信息
 }_Msg_tx;
 
 //接收数据，入站消息
@@ -174,7 +176,7 @@ extern const char strCCVER[16];//读取版本信息
 extern const char strCCSIM[16];//读取北三卡信息
 extern const char strCCPTL[14];//设置为扩展协议
 
-extern uint8_t RD_rxflag,RD_txflag,RD_tx_ack_dirty;
+extern uint8_t RD_rxflag,RD_txflag,RD_tx_ack_dirty,RD_msg_rx_dirty;
 extern uint16_t RD_realsize;
 
 extern uint8_t rxdatabufer;
@@ -186,6 +188,8 @@ extern _Card_info Card_info;
 extern _Tx_ack Tx_ack;
 extern _Msg_tx Msg_tx;
 extern _Msg_rx Msg_rx;
+
+uint16_t Rdss_SanitizePayloadLen(const uint8_t *payload, uint16_t len);
 
 extern uint8_t snr[12];//倒序排序
 
