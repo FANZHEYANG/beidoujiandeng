@@ -38,6 +38,12 @@ static uint8_t Bat_TaskID; // Task ID for BAT processing
 #define LOCATION_MSG_LF SOS_MSG_LF
 #define LOCATION_MSG_ENCODE SOS_MSG_ENCODE
 #define LOCATION_MSG_GENERATION SOS_MSG_GENERATION
+#define WATER_DETECT_PERIOD MS1_TO_SYSTEM_TIME(200)
+#define WATER_ADC_CHANNEL 2
+#define WATER_ADC_SAMPLE_COUNT 10
+#define WATER_SHORT_THRESHOLD 500
+#define WATER_SHORT_CONFIRM_COUNT 3
+#define WATER_CLEAR_CONFIRM_COUNT 5
 
 #define SOS_STATE_IDLE 0
 #define SOS_STATE_WAIT_FIX 1
@@ -75,6 +81,12 @@ static volatile uint8_t sos_reply_received = 0;
 static uint32_t location_report_interval_sec = 0;
 
 static uint8_t led_flash_enable = 0;
+static uint8_t manual_flash_enable = 0;
+static uint8_t sos_flash_enable = 0;
+static uint8_t water_flash_enable = 0;
+static uint8_t water_short_active = 0;
+static uint8_t water_short_count = 0;
+static uint8_t water_clear_count = 0;
 static uint8_t led_index = 0;
 static int8_t led_dir = 1;
 static uint8_t blink_phase = 0;
@@ -90,6 +102,10 @@ static uint8_t key2_release_count = 0;
 static uint8_t soft_power_off = 0;  
 
 static void UpdateLedFlash(void);
+static void Pwr_UpdateLedFlashEnable(void);
+static void Pwr_WaterDetectInit(void);
+static uint16_t Pwr_ReadWaterAdc(void);
+static void Pwr_HandleWaterDetectEvent(void);
 static void Pwr_ClearVoiceQueue(void);
 static uint8_t Pwr_QueueVoiceText(const char *text);
 static uint8_t Pwr_DequeueVoiceText(char *text);
@@ -249,6 +265,85 @@ void Pwr_OnRdssMessageReceived(uint32_t sender)
     }
 }
 
+static void Pwr_UpdateLedFlashEnable(void)
+{
+    uint8_t next_enable = (manual_flash_enable || sos_flash_enable || water_flash_enable) ? 1 : 0;
+
+    if((led_flash_enable != 0) && (next_enable == 0))
+    {
+        led_index = 0;
+        blink_phase = 0;
+        HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
+    }
+
+    led_flash_enable = next_enable;
+}
+
+static void Pwr_WaterDetectInit(void)
+{
+    GPIOA_ModeCfg(GPIO_Pin_13, GPIO_ModeOut_PP_5mA);
+    GPIOA_SetBits(GPIO_Pin_13);
+    GPIOA_ModeCfg(GPIO_Pin_12, GPIO_ModeIN_Floating);
+}
+
+static uint16_t Pwr_ReadWaterAdc(void)
+{
+    uint8_t i;
+    uint32_t total = 0;
+
+    ADC_ChannelCfg(WATER_ADC_CHANNEL);
+    for(i = 0; i < WATER_ADC_SAMPLE_COUNT; i++)
+    {
+        int32_t sample = (int32_t)ADC_ExcutSingleConver() + RoughCalib_Value;
+        if(sample < 0)
+        {
+            sample = 0;
+        }
+        else if(sample > 4095)
+        {
+            sample = 4095;
+        }
+        total += (uint16_t)sample;
+    }
+
+    return (uint16_t)(total / WATER_ADC_SAMPLE_COUNT);
+}
+
+static void Pwr_HandleWaterDetectEvent(void)
+{
+    uint16_t water_adc = Pwr_ReadWaterAdc();
+
+    if(water_adc < WATER_SHORT_THRESHOLD)
+    {
+        water_clear_count = 0;
+        if(water_short_count < WATER_SHORT_CONFIRM_COUNT)
+        {
+            water_short_count++;
+        }
+
+        if((water_short_count >= WATER_SHORT_CONFIRM_COUNT) && (water_short_active == 0))
+        {
+            water_short_active = 1;
+            water_flash_enable = 1;
+            Pwr_UpdateLedFlashEnable();
+        }
+    }
+    else
+    {
+        water_short_count = 0;
+        if(water_clear_count < WATER_CLEAR_CONFIRM_COUNT)
+        {
+            water_clear_count++;
+        }
+
+        if((water_clear_count >= WATER_CLEAR_CONFIRM_COUNT) && (water_short_active != 0))
+        {
+            water_short_active = 0;
+            water_flash_enable = 0;
+            Pwr_UpdateLedFlashEnable();
+        }
+    }
+}
 static uint8_t Pwr_IsGnssFixed(void)
 {
     return (GGA.fix_quality != 0) ? 1 : 0;
@@ -438,7 +533,8 @@ static void Pwr_StartSosAlarm(void)
     sos_reply_received = 0;
     sos_state = SOS_STATE_WAIT_FIX;
     SOS_SW_Flag = TRUE;
-    led_flash_enable = 1;
+    sos_flash_enable = 1;
+    Pwr_UpdateLedFlashEnable();
 
     Pwr_QueueVoiceText("SOS报警");
     PRINT("[SOS] start, wait fix\r\n");
@@ -457,8 +553,8 @@ static void Pwr_StopSosAlarm(uint8_t reason)
     sos_wait_fix_count = 0;
     sos_reply_received = 0;
     SOS_SW_Flag = FALSE;
-    led_flash_enable = 0;
-    HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
+    sos_flash_enable = 0;
+    Pwr_UpdateLedFlashEnable();
     tmos_stop_task(Pwr_TaskID, sos_alarm_evt);
     if(reason != SOS_EXIT_REPLY)
     {
@@ -686,6 +782,7 @@ uint8_t BATTERY_ADC(void)
     uint8_t percentage;
     uint16_t i = 0;
 
+    ADC_ChannelCfg(4);
 
     for(i = 0; i < 20; i++)
     {
@@ -744,12 +841,19 @@ static void SoftPowerOff(void)
     Pwr_StopSosAlarm(SOS_EXIT_POWER);
     location_report_interval_sec = 0;
     tmos_stop_task(Pwr_TaskID, location_report_evt);
+    tmos_stop_task(Pwr_TaskID, water_detect_evt);
     SOS_SW_Flag = FALSE;
 
     Peripheral_BleOff();
 
-    led_flash_enable = 0;
-    HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
+    manual_flash_enable = 0;
+    sos_flash_enable = 0;
+    water_flash_enable = 0;
+    water_short_active = 0;
+    water_short_count = 0;
+    water_clear_count = 0;
+    Pwr_UpdateLedFlashEnable();
+    GPIOA_ResetBits(GPIO_Pin_13);
 
     OPENAUDIO();
     DelayMs(200);
@@ -793,7 +897,15 @@ static void SoftPowerOn(void)
     gnss_last_fixed = 0;
     location_report_interval_sec = 0;
     tmos_stop_task(Pwr_TaskID, location_report_evt);
+    tmos_stop_task(Pwr_TaskID, water_detect_evt);
     SOS_SW_Flag = FALSE;
+    manual_flash_enable = 0;
+    sos_flash_enable = 0;
+    water_flash_enable = 0;
+    water_short_active = 0;
+    water_short_count = 0;
+    water_clear_count = 0;
+    Pwr_UpdateLedFlashEnable();
 
     RN_SW_Flag = FALSE;
     RD_SW_Flag = FALSE;
@@ -805,8 +917,10 @@ static void SoftPowerOn(void)
 
     Peripheral_BleOn();
 
+    Pwr_WaterDetectInit();
     tmos_start_task(Pwr_TaskID, pwr_evt, 1600);
     tmos_start_task(Pwr_TaskID, key1_evt, KEY1_SCAN_PERIOD);
+    tmos_start_task(Pwr_TaskID, water_detect_evt, WATER_DETECT_PERIOD);
     tmos_start_task(Bat_TaskID, bat_evt, 1600);
 }
 
@@ -889,6 +1003,16 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
     {
         Pwr_HandleSosAlarmEvent();
         return (events ^ sos_alarm_evt);
+    }
+
+    if(events & water_detect_evt)
+    {
+        if(soft_power_off == 0)
+        {
+            Pwr_HandleWaterDetectEvent();
+            tmos_start_task(Pwr_TaskID,water_detect_evt,WATER_DETECT_PERIOD);
+        }
+        return (events ^ water_detect_evt);
     }
 
     if(events & location_report_evt)
@@ -981,14 +1105,8 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
                     {
                         if(soft_power_off == 0)
                         {
-                            led_flash_enable = !led_flash_enable;
-
-                            if(led_flash_enable == 0)
-                            {
-                                led_index = 0;
-                                blink_phase = 0;
-                                HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
-                            }
+                            manual_flash_enable = !manual_flash_enable;
+                            Pwr_UpdateLedFlashEnable();
                         }
                     }
 
@@ -1081,9 +1199,11 @@ void Pwr_init(void)
         key2_release_count = 0;
     }
 
+    Pwr_WaterDetectInit();
     Pwr_RequestVoiceText("开机");
     tmos_start_task(Pwr_TaskID,pwr_evt,1600);//开始任务
     tmos_start_task(Pwr_TaskID,key1_evt,KEY1_SCAN_PERIOD);//KEY1短按/长按检测
+    tmos_start_task(Pwr_TaskID,water_detect_evt,WATER_DETECT_PERIOD);
     tmos_start_task(Pwr_TaskID,pwroff_evt,1600);//开始任务
 }
 

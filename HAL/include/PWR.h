@@ -79,6 +79,7 @@ extern void Pwr_RequestLocationReport(void);
 #define sos_alarm_evt            0x0020  //SOS报警状态机
 #define auto_poweroff_evt        0x0040  //蓝牙断开15分钟自动关机
 #define location_report_evt      0x0080  //定时发送位置
+#define water_detect_evt         0x0100  //落水检测
 
 //初始化，注册task
 extern void Pwr_init(void);

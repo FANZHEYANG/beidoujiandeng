@@ -31,6 +31,11 @@ def main():
     queue_voice = pwr_c[pwr_c.index("static uint8_t Pwr_QueueVoiceText"):pwr_c.index("uint8_t Pwr_RequestVoiceText")]
     sos_event = pwr_c[pwr_c.index("if(events & sos_evt)"):pwr_c.index("if(events & key1_evt)")]
     pwr_process = pwr_c[pwr_c.index("uint16_t Pwr_ProcessEvent"):pwr_c.index("void Pwr_init")]
+    battery_adc = pwr_c[pwr_c.index("uint8_t BATTERY_ADC"):pwr_c.index("static void SoftPowerOff")]
+    water_detect = pwr_c[
+        pwr_c.index("static void Pwr_WaterDetectInit") if "static void Pwr_WaterDetectInit" in pwr_c else 0:
+        pwr_c.index("static uint8_t Pwr_IsGnssFixed") if "static uint8_t Pwr_IsGnssFixed" in pwr_c else 0
+    ]
     peripheral_state_start = peripheral_c.rindex("static void peripheralStateNotificationCB")
     peripheral_state = peripheral_c[
         peripheral_state_start:
@@ -139,6 +144,22 @@ def main():
     assert "peripheralScheduleAutoPowerOff" in peripheral_c, "BLE disconnect must schedule auto power-off"
     assert "peripheralCancelAutoPowerOff" in peripheral_c, "BLE reconnect must cancel auto power-off"
     assert "Pwr_RequestAutoPowerOff();" in peripheral_c, "BLE auto power-off event must request PWR soft shutdown"
+    assert "water_detect_evt" in pwr_h, "PWR task must define a water detection event"
+    assert "#define WATER_ADC_CHANNEL 2" in pwr_c, "water detection must read PA12/A2"
+    assert "#define WATER_SHORT_CONFIRM_COUNT 3" in pwr_c, "water short detection must debounce before flashing"
+    assert "#define WATER_CLEAR_CONFIRM_COUNT 5" in pwr_c, "water clear detection must debounce before clearing"
+    assert "GPIOA_ModeCfg(GPIO_Pin_13, GPIO_ModeOut_PP_5mA);" in water_detect, "PA13 must enable the water detector power"
+    assert "GPIOA_SetBits(GPIO_Pin_13);" in water_detect, "water detector power must be enabled"
+    assert "GPIOA_ResetBits(GPIO_Pin_13);" in soft_power_off, "soft power-off must disable water detector power"
+    assert "GPIOA_ModeCfg(GPIO_Pin_12, GPIO_ModeIN_Floating);" in water_detect, "PA12 must be configured as the water detector ADC input"
+    assert "ADC_ChannelCfg(WATER_ADC_CHANNEL);" in water_detect, "water detection must select ADC channel 2 before sampling"
+    assert "ADC_ChannelCfg(4);" in battery_adc, "battery ADC must reselect channel 4 after water detection uses channel 2"
+    assert "water_flash_enable = 1;" in water_detect, "water short must request flashing"
+    assert "water_flash_enable = 0;" in water_detect, "water clear must release flashing"
+    assert "Pwr_UpdateLedFlashEnable();" in water_detect, "water flashing must be merged with SOS/manual flashing"
+    assert "if(events & water_detect_evt)" in pwr_process, "PWR task must process water detection periodically"
+    assert "Pwr_HandleWaterDetectEvent();" in pwr_process, "water detection event must run the detector"
+    assert "tmos_start_task(Pwr_TaskID,water_detect_evt,WATER_DETECT_PERIOD);" in pwr_init, "water detection must start during PWR init"
     assert "BOOL RN_SW_Flag   = FALSE;" in pwr_c, "RNSS must stay off until BLE is connected"
     assert "BOOL RD_SW_Flag   = FALSE;" in pwr_c, "RDSS must stay off until BLE is connected"
     assert "GPIOB_SetBits(GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_16|GPIO_Pin_18)" not in peripheral_main_c, "cold startup must not power RNSS/RDSS together"
