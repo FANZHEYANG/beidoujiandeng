@@ -74,6 +74,11 @@ def main():
         decode_c.index("uint16_t RDSS_ProcessEvent"):
         decode_c.index("void RDSS_init")
     ]
+    rdss_tx_start = rdss_process.index("if (RD_txflag==1)")
+    rdss_tx_block = rdss_process[
+        rdss_tx_start:
+        rdss_process.index("while (RD_FRAME_COUNT > 0)", rdss_tx_start)
+    ]
     rdss_write_4504 = gattprofile_c[
         gattprofile_c.index("case RDSSPROFILE_CHAR4_UUID"):
         gattprofile_c.index("case GATT_CLIENT_CHAR_CFG_UUID", gattprofile_c.index("case RDSSPROFILE_CHAR4_UUID"))
@@ -135,16 +140,16 @@ def main():
     assert "peripheralCancelAutoPowerOff" in peripheral_c, "BLE reconnect must cancel auto power-off"
     assert "Pwr_RequestAutoPowerOff();" in peripheral_c, "BLE auto power-off event must request PWR soft shutdown"
     assert "BOOL RN_SW_Flag   = FALSE;" in pwr_c, "RNSS must stay off until BLE is connected"
-    assert "BOOL RD_SW_Flag   = FALSE;" in pwr_c, "RDSS must stay off until a message is sent"
+    assert "BOOL RD_SW_Flag   = FALSE;" in pwr_c, "RDSS must stay off until BLE is connected"
     assert "GPIOB_SetBits(GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_16|GPIO_Pin_18)" not in peripheral_main_c, "cold startup must not power RNSS/RDSS together"
     assert "GPIOB_SetBits(GPIO_Pin_16);" in peripheral_main_c, "cold startup may keep audio power initialized"
     assert "GPIOB_ResetBits(GPIO_Pin_1|GPIO_Pin_3|GPIO_Pin_18);" in peripheral_main_c, "cold startup must keep RNSS/RDSS module rails off"
     assert "GPIOA_ResetBits(GPIO_Pin_15);" in peripheral_main_c, "cold startup must keep RNSS AT enable off"
     assert "peripheralSetSatelliteModules" in peripheral_c, "BLE layer must own satellite module power state"
     assert "RN_SW_Flag = enabled;" in satellite_helper, "satellite helper must update RNSS power flag"
-    assert "RD_SW_Flag = FALSE;" in satellite_helper, "satellite helper must leave RDSS off on BLE connect"
+    assert "RD_SW_Flag = enabled;" in satellite_helper, "satellite helper must update RDSS power flag"
     assert "OPENRN();" in satellite_helper, "BLE connect must power on RNSS"
-    assert "OPENRD();" not in satellite_helper, "BLE connect must not power on RDSS"
+    assert "OPENRD();" in satellite_helper, "BLE connect must power on RDSS"
     assert "CLOSERN();" in satellite_helper and "CLOSERD();" in satellite_helper, "satellite helper must power off RNSS/RDSS"
     assert "Pwr_EnableRdssForSend" in pwr_h, "PWR.h must expose a send-time RDSS enable API"
     assert "void Pwr_EnableRdssForSend" in pwr_c, "PWR.c must implement the send-time RDSS enable API"
@@ -153,7 +158,7 @@ def main():
     assert "OPENRD();" in rdss_enable, "send-time RDSS enable must power the module immediately"
     assert "Pwr_EnableRdssForSend();" in sos_queue, "SOS sends must enable RDSS before queueing TX"
     assert "Pwr_EnableRdssForSend();" in location_queue, "location sends must enable RDSS before queueing TX"
-    assert "peripheralSetSatelliteModules(TRUE);" in link_established, "BLE connect must enable RNSS through helper"
+    assert "peripheralSetSatelliteModules(TRUE);" in link_established, "BLE connect must enable RNSS/RDSS through helper"
     assert "peripheralSetSatelliteModules(FALSE);" in link_terminated, "BLE disconnect must disable RNSS/RDSS"
     assert "peripheralSetSatelliteModules(FALSE);" in ble_off, "BLE off must disable RNSS/RDSS"
     assert "peripheralSetSatelliteModules(FALSE);" in ble_on, "BLE on must start advertising with RNSS/RDSS off"
@@ -191,6 +196,14 @@ def main():
     assert "Pwr_EnableRdssForSend();" in rdss_write_4504, "valid 4504 writes must enable RDSS before queueing TX"
     assert "RD_txflag = true;" in rdss_write_4504, "valid 4504 writes must still queue DM229 transmission"
     assert "Msg_tx.payload_len = Rdss_SanitizePayloadLen" in rdss_process, "DM229 transmit path must keep payload on a safe boundary"
+    assert "RN_SW_Flag = FALSE;" in rdss_tx_block, "DM229 transmit path must turn RNSS off before sending"
+    assert "CLOSERN();" in rdss_tx_block, "DM229 transmit path must physically close RNSS before sending"
+    assert "RN_SW_Flag = TRUE;" in rdss_tx_block, "DM229 transmit path must restore RNSS after sending"
+    assert "OPENRN();" in rdss_tx_block, "DM229 transmit path must physically reopen RNSS after sending"
+    rn_close_pos = rdss_tx_block.index("RN_SW_Flag = FALSE;")
+    rd_send_pos = rdss_tx_block.index("UART0_SendString")
+    rn_open_pos = rdss_tx_block.index("RN_SW_Flag = TRUE;")
+    assert rn_close_pos < rd_send_pos < rn_open_pos, "RNSS must close before DM229 send and reopen after send"
     assert "Rdss_ClearMsgRx();" in rdss_process, "BDMXX parsing must clear stale inbound SMS fields"
     assert "RD_msg_rx_dirty = 1;" in rdss_process, "new BDMXX messages must mark 4506 dirty"
     assert "j<RDSS_MSG_PAYLOAD_MAX" in rdss_process, "BDMXX payload copied to APP must stay within 4506 payload capacity"

@@ -664,12 +664,12 @@ static void Peripheral_ProcessTMOSMsg(tmos_event_hdr_t *pMsg)
 static void peripheralSetSatelliteModules(BOOL enabled)
 {
     RN_SW_Flag = enabled;
-    RD_SW_Flag = FALSE;
+    RD_SW_Flag = enabled;
 
     if(enabled == TRUE)
     {
         OPENRN();
-        CLOSERD();
+        OPENRD();
     }
     else
     {

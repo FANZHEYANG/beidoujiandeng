@@ -1004,6 +1004,8 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
 
 		UART0_SendString((uint8_t *)strCCMSG, strlen((char *)strCCMSG));
 		RD_txflag = false;
+        RN_SW_Flag = TRUE;
+        OPENRN();
 				
     }
 
