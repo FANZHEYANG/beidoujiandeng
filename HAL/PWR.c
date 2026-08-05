@@ -41,7 +41,9 @@ static uint8_t Bat_TaskID; // Task ID for BAT processing
 #define WATER_DETECT_PERIOD MS1_TO_SYSTEM_TIME(200)
 #define WATER_ADC_CHANNEL 2
 #define WATER_ADC_SAMPLE_COUNT 10
-#define WATER_SHORT_THRESHOLD 500
+#define WATER_SHORT_THRESHOLD_MV 2000
+#define WATER_ADC_MV_NUMERATOR 1050
+#define WATER_ADC_MV_DENOMINATOR 2048
 #define WATER_SHORT_CONFIRM_COUNT 3
 #define WATER_CLEAR_CONFIRM_COUNT 5
 
@@ -105,6 +107,7 @@ static void UpdateLedFlash(void);
 static void Pwr_UpdateLedFlashEnable(void);
 static void Pwr_WaterDetectInit(void);
 static uint16_t Pwr_ReadWaterAdc(void);
+static uint16_t Pwr_ReadWaterVoltageMv(void);
 static void Pwr_HandleWaterDetectEvent(void);
 static void Pwr_ClearVoiceQueue(void);
 static uint8_t Pwr_QueueVoiceText(const char *text);
@@ -309,11 +312,18 @@ static uint16_t Pwr_ReadWaterAdc(void)
     return (uint16_t)(total / WATER_ADC_SAMPLE_COUNT);
 }
 
+static uint16_t Pwr_ReadWaterVoltageMv(void)
+{
+    uint32_t water_raw = Pwr_ReadWaterAdc();
+
+    return (uint16_t)((water_raw * WATER_ADC_MV_NUMERATOR) / WATER_ADC_MV_DENOMINATOR);
+}
+
 static void Pwr_HandleWaterDetectEvent(void)
 {
-    uint16_t water_adc = Pwr_ReadWaterAdc();
+    uint16_t water_mv = Pwr_ReadWaterVoltageMv();
 
-    if(water_adc < WATER_SHORT_THRESHOLD)
+    if(water_mv < WATER_SHORT_THRESHOLD_MV)
     {
         water_clear_count = 0;
         if(water_short_count < WATER_SHORT_CONFIRM_COUNT)
