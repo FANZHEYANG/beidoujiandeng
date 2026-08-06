@@ -9,6 +9,7 @@
  *                                        GLOBAL VARIABLES
  **************************************************************************************************/
 signed short RoughCalib_Value = 0; // ADC粗调偏差值
+signed short WaterRoughCalib_Value = 0; // PA12 ADC offset correction
 uint8_t Bat_percentage = 0;
 
 BOOL RN_SW_Flag   = FALSE;//默认关闭
@@ -42,8 +43,6 @@ static uint8_t Bat_TaskID; // Task ID for BAT processing
 #define WATER_ADC_CHANNEL 2
 #define WATER_ADC_SAMPLE_COUNT 10
 #define WATER_SHORT_THRESHOLD_MV 2000
-#define WATER_ADC_MV_NUMERATOR 2100
-#define WATER_ADC_MV_DENOMINATOR 2048
 #define WATER_SHORT_CONFIRM_COUNT 3
 #define WATER_CLEAR_CONFIRM_COUNT 5
 
@@ -288,6 +287,9 @@ static void Pwr_WaterDetectInit(void)
     GPIOA_SetBits(GPIO_Pin_13);
     GPIOA_ModeCfg(GPIO_Pin_12, GPIO_ModeIN_Floating);
     GPIOADigitalCfg(DISABLE, GPIO_Pin_12);
+    ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_1_4);
+    ADC_ChannelCfg(WATER_ADC_CHANNEL);
+    WaterRoughCalib_Value = ADC_DataCalib_Rough();
 }
 
 static uint16_t Pwr_ReadWaterAdc(void)
@@ -295,11 +297,11 @@ static uint16_t Pwr_ReadWaterAdc(void)
     uint8_t i;
     uint32_t total = 0;
 
-    ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_1_2);
+    ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_1_4);
     ADC_ChannelCfg(WATER_ADC_CHANNEL);
     for(i = 0; i < WATER_ADC_SAMPLE_COUNT; i++)
     {
-        int32_t sample = (int32_t)ADC_ExcutSingleConver() + RoughCalib_Value;
+        int32_t sample = (int32_t)ADC_ExcutSingleConver() + WaterRoughCalib_Value;
         if(sample < 0)
         {
             sample = 0;
@@ -316,14 +318,16 @@ static uint16_t Pwr_ReadWaterAdc(void)
 
 static uint16_t Pwr_ReadWaterVoltageMv(uint16_t *raw_out)
 {
-    uint32_t water_raw = Pwr_ReadWaterAdc();
+    uint16_t water_raw = Pwr_ReadWaterAdc();
+    int water_mv;
 
     if(raw_out != NULL)
     {
-        *raw_out = (uint16_t)water_raw;
+        *raw_out = water_raw;
     }
 
-    return (uint16_t)((water_raw * WATER_ADC_MV_NUMERATOR) / WATER_ADC_MV_DENOMINATOR);
+    water_mv = ADC_VoltConverSignalPGA_MINUS_12dB(water_raw);
+    return (water_mv > 0) ? (uint16_t)water_mv : 0;
 }
 
 static void Pwr_HandleWaterDetectEvent(void)
@@ -332,8 +336,8 @@ static void Pwr_HandleWaterDetectEvent(void)
     uint16_t water_mv = Pwr_ReadWaterVoltageMv(&water_raw);
     uint8_t pa12_dis = (R32_PIN_IN_DIS & GPIO_Pin_12) ? 1 : 0;
 
-    PRINT("[WATER] raw=%u mv=%u pa12Dis=%u ch=%u cfg=%u conv=%u pinCfg=%u inDis=%lu\r\n",
-          water_raw, water_mv, pa12_dis, R8_ADC_CHANNEL, R8_ADC_CFG,
+    PRINT("[WATER] raw=%u mv=%u calib=%d pa12Dis=%u ch=%u cfg=%u conv=%u pinCfg=%u inDis=%lu\r\n",
+          water_raw, water_mv, WaterRoughCalib_Value, pa12_dis, R8_ADC_CHANNEL, R8_ADC_CFG,
           R8_ADC_CONVERT, R16_PIN_CONFIG, (unsigned long)R32_PIN_IN_DIS);
 
     if(water_mv < WATER_SHORT_THRESHOLD_MV)

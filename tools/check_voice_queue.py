@@ -14,6 +14,10 @@ def read_text(path):
     return data.decode("latin1")
 
 
+def adc_minus_12db_mv(raw):
+    return ((raw * 1050 + 256) // 512) - 3150
+
+
 def main():
     pwr_h = read_text("HAL/include/PWR.h")
     pwr_c = read_text("HAL/PWR.c")
@@ -36,6 +40,9 @@ def main():
         pwr_c.index("static void Pwr_WaterDetectInit") if "static void Pwr_WaterDetectInit" in pwr_c else 0:
         pwr_c.index("static uint8_t Pwr_IsGnssFixed") if "static uint8_t Pwr_IsGnssFixed" in pwr_c else 0
     ]
+    water_init = pwr_c[pwr_c.rindex("static void Pwr_WaterDetectInit"):pwr_c.rindex("static uint16_t Pwr_ReadWaterAdc")]
+    water_adc = pwr_c[pwr_c.rindex("static uint16_t Pwr_ReadWaterAdc"):pwr_c.rindex("static uint16_t Pwr_ReadWaterVoltageMv")]
+    water_voltage = pwr_c[pwr_c.rindex("static uint16_t Pwr_ReadWaterVoltageMv"):pwr_c.rindex("static void Pwr_HandleWaterDetectEvent")]
     peripheral_state_start = peripheral_c.rindex("static void peripheralStateNotificationCB")
     peripheral_state = peripheral_c[
         peripheral_state_start:
@@ -148,12 +155,13 @@ def main():
     assert "#define WATER_ADC_CHANNEL 2" in pwr_c, "water detection must read PA12/A2"
     assert "WATER_ADC2_3_ANALOG_IE" not in pwr_c, "water detection must not use the wrong R16_PIN_CONFIG bit for PA12"
     assert "#define WATER_SHORT_THRESHOLD_MV 2000" in pwr_c, "water short detection threshold must be 2V"
-    assert "#define WATER_ADC_MV_NUMERATOR 2100" in pwr_c, "water ADC conversion must account for the 1/2 PGA range"
-    assert "#define WATER_ADC_MV_DENOMINATOR 2048" in pwr_c, "water ADC conversion must convert raw samples to millivolts"
+    assert "WATER_ADC_MV_NUMERATOR" not in pwr_c, "water ADC conversion must use the SDK transfer function, not a proportional approximation"
+    assert "WATER_ADC_MV_DENOMINATOR" not in pwr_c, "water ADC conversion must use the SDK transfer function, not a proportional approximation"
+    assert "signed short WaterRoughCalib_Value = 0;" in pwr_c, "water ADC must keep calibration separate from the battery channel"
     assert "static uint16_t Pwr_ReadWaterVoltageMv(uint16_t *raw_out)" in pwr_c, "water detection must expose the raw ADC sample for diagnostics"
     assert "uint16_t water_raw = 0;" in water_detect, "water detection must keep the raw ADC sample for diagnostics"
     assert "Pwr_ReadWaterVoltageMv(&water_raw)" in water_detect, "water detection must read millivolts and raw ADC before comparing"
-    assert '"[WATER] raw=%u mv=%u pa12Dis=%u ch=%u cfg=%u conv=%u pinCfg=%u inDis=%lu\\r\\n"' in water_detect, "water detection must print raw ADC and register diagnostics"
+    assert '"[WATER] raw=%u mv=%u calib=%d pa12Dis=%u ch=%u cfg=%u conv=%u pinCfg=%u inDis=%lu\\r\\n"' in water_detect, "water detection must print raw ADC, calibration, and register diagnostics"
     assert "water_mv < WATER_SHORT_THRESHOLD_MV" in water_detect, "water short detection must trigger below 2V"
     assert "WATER_SHORT_THRESHOLD 500" not in pwr_c, "water short detection must not use the old raw ADC threshold"
     assert "#define WATER_SHORT_CONFIRM_COUNT 3" in pwr_c, "water short detection must debounce before flashing"
@@ -163,8 +171,20 @@ def main():
     assert "GPIOA_ResetBits(GPIO_Pin_13);" in soft_power_off, "soft power-off must disable water detector power"
     assert "GPIOA_ModeCfg(GPIO_Pin_12, GPIO_ModeIN_Floating);" in water_detect, "PA12 must be configured as the water detector ADC input"
     assert "GPIOADigitalCfg(DISABLE, GPIO_Pin_12);" in water_detect, "PA12 digital input must be disabled for analog ADC sampling"
-    assert "ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_1_2);" in water_detect, "water detection must use the 1/2 PGA range so 3.3V does not saturate"
-    assert "ADC_ChannelCfg(WATER_ADC_CHANNEL);" in water_detect, "water detection must select ADC channel 2 before sampling"
+    water_init_gain = water_init.index("ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_1_4);")
+    water_init_channel = water_init.index("ADC_ChannelCfg(WATER_ADC_CHANNEL);")
+    water_init_calibration = water_init.index("WaterRoughCalib_Value = ADC_DataCalib_Rough();")
+    assert water_init_gain < water_init_channel < water_init_calibration, "water calibration must run after configuring the 1/4 PGA and ADC2"
+    assert "ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_1_4);" in water_adc, "water sampling must restore the 1/4 PGA range"
+    assert "ADC_PGA_1_2" not in water_adc, "water sampling must not use the saturating 1/2 PGA range"
+    assert "ADC_ChannelCfg(WATER_ADC_CHANNEL);" in water_adc, "water sampling must select ADC channel 2"
+    assert "ADC_ExcutSingleConver() + WaterRoughCalib_Value" in water_adc, "water samples must use the water-specific calibration"
+    assert "ADC_VoltConverSignalPGA_MINUS_12dB(water_raw)" in water_voltage, "water voltage must use the CH58x SDK -12dB transfer function"
+    assert "return (water_mv > 0) ? (uint16_t)water_mv : 0;" in water_voltage, "negative SDK voltage results must clamp to zero"
+    assert adc_minus_12db_mv(3129) == 3267, "3.267V must convert without saturation"
+    assert adc_minus_12db_mv(1682) == 299, "the measured 0.3V water short must stay below the alarm threshold"
+    assert adc_minus_12db_mv(2511) == 2000, "the configured water threshold must map to 2000mV"
+    assert adc_minus_12db_mv(4095) == 5248, "the 1/4 PGA range must cover a 3.3V dry input"
     assert "ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_0);" in battery_adc, "battery ADC must restore the original PGA before sampling"
     assert "ADC_ChannelCfg(4);" in battery_adc, "battery ADC must reselect channel 4 after water detection uses channel 2"
     assert "water_flash_enable = 1;" in water_detect, "water short must request flashing"
