@@ -151,6 +151,7 @@ def main():
     assert "#define WATER_ADC_MV_DENOMINATOR 2048" in pwr_c, "water ADC conversion must convert raw samples to millivolts"
     assert "static uint16_t Pwr_ReadWaterVoltageMv" in pwr_c, "water detection must compare a voltage value, not raw ADC"
     assert "Pwr_ReadWaterVoltageMv()" in water_detect, "water detection must read millivolts before comparing"
+    assert 'PRINT("[WATER] PA12=%u mV\\r\\n", water_mv);' in water_detect, "water detection must print PA12 voltage in millivolts"
     assert "water_mv < WATER_SHORT_THRESHOLD_MV" in water_detect, "water short detection must trigger below 2V"
     assert "WATER_SHORT_THRESHOLD 500" not in pwr_c, "water short detection must not use the old raw ADC threshold"
     assert "#define WATER_SHORT_CONFIRM_COUNT 3" in pwr_c, "water short detection must debounce before flashing"

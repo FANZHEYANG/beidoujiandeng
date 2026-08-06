@@ -323,6 +323,8 @@ static void Pwr_HandleWaterDetectEvent(void)
 {
     uint16_t water_mv = Pwr_ReadWaterVoltageMv();
 
+    PRINT("[WATER] PA12=%u mV\r\n", water_mv);
+
     if(water_mv < WATER_SHORT_THRESHOLD_MV)
     {
         water_clear_count = 0;
