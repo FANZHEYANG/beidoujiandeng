@@ -40,6 +40,7 @@ static uint8_t Bat_TaskID; // Task ID for BAT processing
 #define LOCATION_MSG_GENERATION SOS_MSG_GENERATION
 #define WATER_DETECT_PERIOD MS1_TO_SYSTEM_TIME(200)
 #define WATER_ADC_CHANNEL 2
+#define WATER_ADC2_3_ANALOG_IE 0x4000
 #define WATER_ADC_SAMPLE_COUNT 10
 #define WATER_SHORT_THRESHOLD_MV 2000
 #define WATER_ADC_MV_NUMERATOR 2100
@@ -287,6 +288,7 @@ static void Pwr_WaterDetectInit(void)
     GPIOA_ModeCfg(GPIO_Pin_13, GPIO_ModeOut_PP_5mA);
     GPIOA_SetBits(GPIO_Pin_13);
     GPIOA_ModeCfg(GPIO_Pin_12, GPIO_ModeIN_Floating);
+    GPIOAGPPCfg(ENABLE, WATER_ADC2_3_ANALOG_IE);
 }
 
 static uint16_t Pwr_ReadWaterAdc(void)
