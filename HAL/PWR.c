@@ -40,7 +40,6 @@ static uint8_t Bat_TaskID; // Task ID for BAT processing
 #define LOCATION_MSG_GENERATION SOS_MSG_GENERATION
 #define WATER_DETECT_PERIOD MS1_TO_SYSTEM_TIME(200)
 #define WATER_ADC_CHANNEL 2
-#define WATER_ADC2_3_ANALOG_IE 0x4000
 #define WATER_ADC_SAMPLE_COUNT 10
 #define WATER_SHORT_THRESHOLD_MV 2000
 #define WATER_ADC_MV_NUMERATOR 2100
@@ -108,7 +107,7 @@ static void UpdateLedFlash(void);
 static void Pwr_UpdateLedFlashEnable(void);
 static void Pwr_WaterDetectInit(void);
 static uint16_t Pwr_ReadWaterAdc(void);
-static uint16_t Pwr_ReadWaterVoltageMv(void);
+static uint16_t Pwr_ReadWaterVoltageMv(uint16_t *raw_out);
 static void Pwr_HandleWaterDetectEvent(void);
 static void Pwr_ClearVoiceQueue(void);
 static uint8_t Pwr_QueueVoiceText(const char *text);
@@ -288,7 +287,7 @@ static void Pwr_WaterDetectInit(void)
     GPIOA_ModeCfg(GPIO_Pin_13, GPIO_ModeOut_PP_5mA);
     GPIOA_SetBits(GPIO_Pin_13);
     GPIOA_ModeCfg(GPIO_Pin_12, GPIO_ModeIN_Floating);
-    GPIOAGPPCfg(ENABLE, WATER_ADC2_3_ANALOG_IE);
+    GPIOADigitalCfg(DISABLE, GPIO_Pin_12);
 }
 
 static uint16_t Pwr_ReadWaterAdc(void)
@@ -315,18 +314,27 @@ static uint16_t Pwr_ReadWaterAdc(void)
     return (uint16_t)(total / WATER_ADC_SAMPLE_COUNT);
 }
 
-static uint16_t Pwr_ReadWaterVoltageMv(void)
+static uint16_t Pwr_ReadWaterVoltageMv(uint16_t *raw_out)
 {
     uint32_t water_raw = Pwr_ReadWaterAdc();
+
+    if(raw_out != NULL)
+    {
+        *raw_out = (uint16_t)water_raw;
+    }
 
     return (uint16_t)((water_raw * WATER_ADC_MV_NUMERATOR) / WATER_ADC_MV_DENOMINATOR);
 }
 
 static void Pwr_HandleWaterDetectEvent(void)
 {
-    uint16_t water_mv = Pwr_ReadWaterVoltageMv();
+    uint16_t water_raw = 0;
+    uint16_t water_mv = Pwr_ReadWaterVoltageMv(&water_raw);
+    uint8_t pa12_dis = (R32_PIN_IN_DIS & GPIO_Pin_12) ? 1 : 0;
 
-    PRINT("[WATER] PA12=%u mV\r\n", water_mv);
+    PRINT("[WATER] raw=%u mv=%u pa12Dis=%u ch=%u cfg=%u conv=%u pinCfg=%u inDis=%lu\r\n",
+          water_raw, water_mv, pa12_dis, R8_ADC_CHANNEL, R8_ADC_CFG,
+          R8_ADC_CONVERT, R16_PIN_CONFIG, (unsigned long)R32_PIN_IN_DIS);
 
     if(water_mv < WATER_SHORT_THRESHOLD_MV)
     {
