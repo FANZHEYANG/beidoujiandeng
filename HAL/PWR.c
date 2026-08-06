@@ -42,7 +42,7 @@ static uint8_t Bat_TaskID; // Task ID for BAT processing
 #define WATER_ADC_CHANNEL 2
 #define WATER_ADC_SAMPLE_COUNT 10
 #define WATER_SHORT_THRESHOLD_MV 2000
-#define WATER_ADC_MV_NUMERATOR 1050
+#define WATER_ADC_MV_NUMERATOR 2100
 #define WATER_ADC_MV_DENOMINATOR 2048
 #define WATER_SHORT_CONFIRM_COUNT 3
 #define WATER_CLEAR_CONFIRM_COUNT 5
@@ -294,6 +294,7 @@ static uint16_t Pwr_ReadWaterAdc(void)
     uint8_t i;
     uint32_t total = 0;
 
+    ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_1_2);
     ADC_ChannelCfg(WATER_ADC_CHANNEL);
     for(i = 0; i < WATER_ADC_SAMPLE_COUNT; i++)
     {
@@ -793,6 +794,8 @@ uint8_t BATTERY_ADC(void)
     uint16_t adcBuff[20];
     uint8_t percentage;
     uint16_t i = 0;
+
+    ADC_ExtSingleChSampInit(SampleFreq_4_or_2, ADC_PGA_0);
 
     ADC_ChannelCfg(4);
 
