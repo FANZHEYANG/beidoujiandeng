@@ -10,6 +10,13 @@
 #define printf(...)
 #endif
 
+#define GNSS_DEBUG_PRINT_ENABLE 0
+#if GNSS_DEBUG_PRINT_ENABLE
+#define GNSS_DEBUG_PRINT(...) PRINT(__VA_ARGS__)
+#else
+#define GNSS_DEBUG_PRINT(...)
+#endif
+
 
 uint16_t point0 = 0;
 uint16_t point1 = 0;
@@ -25,12 +32,20 @@ static uint8_t gnss_echo_warned = 0;
 
 static void gnss_mute_rx_ms(uint32_t ms)
 {
+#if GNSS_DEBUG_PRINT_ENABLE
     gnss_mute_until = TMOS_GetSystemClock() + MS1_TO_SYSTEM_TIME(ms);
+#else
+    (void)ms;
+#endif
 }
 
 static uint8_t gnss_rx_muted(void)
 {
+#if GNSS_DEBUG_PRINT_ENABLE
     return (TMOS_GetSystemClock() < gnss_mute_until) ? 1 : 0;
+#else
+    return 0;
+#endif
 }
 
 static uint8_t gnss_ring_has_echo(void)
@@ -165,13 +180,13 @@ int is_empty_field(const char *field) {
 int parse_gbgsv(const char* sentence, satellite_info_t* satellites, int max_satellites) {
     // 验证校验和
     if (!validate_checksum(sentence)) {
-        printf("GSV checksum warn\r\n");
+        GNSS_DEBUG_PRINT("GSV checksum warn\r\n");
     }
 
  // 查找数据部分开始位置（跳过$GBGSV或$GPGSV）
     const char *ptr = strchr(sentence, ',');
     if (!ptr) {
-        printf("无效的语句格式\n");
+        GNSS_DEBUG_PRINT("无效的语句格式\n");
         return -1;
     }
     ptr++; // 跳过第一个逗号
@@ -203,7 +218,7 @@ int parse_gbgsv(const char* sentence, satellite_info_t* satellites, int max_sate
      }
     
     if (field_count  < 3) {
-        printf("字段数量不足\n");
+        GNSS_DEBUG_PRINT("字段数量不足\n");
         return -1;
     }
     
@@ -228,7 +243,7 @@ int parse_gbgsv(const char* sentence, satellite_info_t* satellites, int max_sate
 
     // 验证卫星数量是否合理
     if (GSVDataSet.satellites_in_view < 0 ) {
-        printf("卫星数量不合理，放弃解析\n");
+        GNSS_DEBUG_PRINT("卫星数量不合理，放弃解析\n");
         return -1;
     }
     
@@ -356,16 +371,16 @@ void process_complete_gsv_data() {
         }
         sort_gnss_snr_desc();
 
-        PRINT("\r\n[GNSS GSV] count=%d", Save_GSV_Data.satellite_count);
+        GNSS_DEBUG_PRINT("\r\n[GNSS GSV] count=%d", Save_GSV_Data.satellite_count);
         for(i = 0; i < 12 && i < Save_GSV_Data.satellite_count; i++)
         {
-            PRINT(" %d", Save_GSV_Data.satellites[i].snr);
+            GNSS_DEBUG_PRINT(" %d", Save_GSV_Data.satellites[i].snr);
         }
-        PRINT("\r\n");
+        GNSS_DEBUG_PRINT("\r\n");
     }
     else
     {
-        PRINT("\r\n[GNSS GSV] parse failed, keep count=%d\r\n", Save_GSV_Data.satellite_count);
+        GNSS_DEBUG_PRINT("\r\n[GNSS GSV] parse failed, keep count=%d\r\n", Save_GSV_Data.satellite_count);
     }
 }
 
@@ -724,7 +739,7 @@ void parseGpsBuffer()
 			if (i == 0)
 			{
 				if ((subString = strstr((char *)Save_Data.GPS_Buffer, ",")) == NULL)
-					printf("ERROR\r\n");	//解析错误
+					GNSS_DEBUG_PRINT("ERROR\r\n");	//解析错误
 			}
 			else
 			{
@@ -740,7 +755,7 @@ void parseGpsBuffer()
 					}
 					if(field_end == NULL)
 					{
-						printf("ERROR\r\n");
+						GNSS_DEBUG_PRINT("ERROR\r\n");
 						continue;
 					}
 					switch(i)
@@ -777,7 +792,7 @@ void parseGpsBuffer()
 				}
 				else
 				{
-					printf("ERROR\r\n");	//解析错误
+					GNSS_DEBUG_PRINT("ERROR\r\n");	//解析错误
 				}
 			}
 
@@ -822,7 +837,7 @@ void printGpsBuffer()
 			clearGgaPositionFields();
 		}
 
-		PRINT("\r\n[GNSS GGA] fix=%d lat=%f lon=%f sats=%d\r\n",
+		GNSS_DEBUG_PRINT("\r\n[GNSS GGA] fix=%d lat=%f lon=%f sats=%d\r\n",
 		       GGA.fix_quality, GGA.latitude, GGA.longitude, GGA.satellites_tracked);
         Pwr_OnGnssFixUpdate((uint8_t)GGA.fix_quality);
 	}
@@ -848,7 +863,7 @@ uint16_t RNSS_ProcessEvent(uint8_t task_id, uint16_t events)
 		printGpsBuffer();
 
         gnss_mute_rx_ms(80);
-        PRINT("[GNSS] rx=%lu had_gga=%d gsv=%d/%d sat=%d fix=%d buf=%u\r\n",
+        GNSS_DEBUG_PRINT("[GNSS] rx=%lu had_gga=%d gsv=%d/%d sat=%d fix=%d buf=%u\r\n",
               (unsigned long)gnss_rx_byte_count,
               (int)had_gga,
               Save_GSV_Data.gsv_count,
@@ -860,16 +875,16 @@ uint16_t RNSS_ProcessEvent(uint8_t task_id, uint16_t events)
         if(had_gga == 0 && gnss_ring_has_echo() && !gnss_echo_warned)
         {
             gnss_echo_warned = 1;
-            PRINT("[GNSS WARN] UART1 RX got debug echo, not CM112B NMEA. Check PA8 wiring.\r\n");
+            GNSS_DEBUG_PRINT("[GNSS WARN] UART1 RX got debug echo, not CM112B NMEA. Check PA8 wiring.\r\n");
         }
         else if(had_gga == 0 && !gnss_ring_has_echo())
         {
             uint8_t i;
             uint8_t base = gnss_raw_idx;
-            PRINT("[GNSS RAW] ");
+            GNSS_DEBUG_PRINT("[GNSS RAW] ");
             for(i = 0; i < 24; i++)
-                PRINT("%02X ", gnss_raw_ring[(base - 24 + i) & 47]);
-            PRINT("\r\n");
+                GNSS_DEBUG_PRINT("%02X ", gnss_raw_ring[(base - 24 + i) & 47]);
+            GNSS_DEBUG_PRINT("\r\n");
         }
         gnss_mute_rx_ms(80);
 
