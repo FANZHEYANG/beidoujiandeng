@@ -744,7 +744,7 @@ static void Peripheral_LinkTerminated(gapRoleEvent_t *pEvent)
         peripheralConnList.connTimeout = 0;
         tmos_stop_task(Peripheral_TaskID, SBP_PERIODIC_EVT);
         tmos_stop_task(Peripheral_TaskID, SBP_READ_RSSI_EVT);
-        peripheralSetSatelliteModules(FALSE);
+        // Keep RNSS/RDSS running across ordinary BLE disconnects during testing.
 
         // Restart advertising
         

@@ -213,7 +213,7 @@ def main():
     assert "Pwr_EnableRdssForSend();" in sos_queue, "SOS sends must enable RDSS before queueing TX"
     assert "Pwr_EnableRdssForSend();" in location_queue, "location sends must enable RDSS before queueing TX"
     assert "peripheralSetSatelliteModules(TRUE);" in link_established, "BLE connect must enable RNSS/RDSS through helper"
-    assert "peripheralSetSatelliteModules(FALSE);" in link_terminated, "BLE disconnect must disable RNSS/RDSS"
+    assert "peripheralSetSatelliteModules(FALSE);" not in link_terminated, "ordinary BLE disconnect must keep RNSS/RDSS powered"
     assert "peripheralSetSatelliteModules(FALSE);" in ble_off, "BLE off must disable RNSS/RDSS"
     assert "peripheralSetSatelliteModules(FALSE);" in ble_on, "BLE on must start advertising with RNSS/RDSS off"
     assert "peripheralRdssSnrNotify(snr, RDSSPROFILE_CHAR3_LEN);" in peripheral_c, "0x4503 notify must keep using parsed RDSS SNR"
