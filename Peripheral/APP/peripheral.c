@@ -1399,7 +1399,7 @@ static uint8_t peripheralRdssTxAckNotify(uint8_t *pValue, uint16_t len)
     bStatus_t status;
     if(len > (peripheralMTU - 3))
     {
-        PRINT("[4505] notify too large len=%d mtu=%d\r\n", len, peripheralMTU);
+        RDSS_SEND_TEST_PRINT("[4505] notify too large len=%d mtu=%d\r\n", len, peripheralMTU);
         return bleInvalidRange;
     }
     noti.len = len;
@@ -1411,15 +1411,15 @@ static uint8_t peripheralRdssTxAckNotify(uint8_t *pValue, uint16_t len)
         if(status != SUCCESS)
         {
             GATT_bm_free((gattMsg_t *)&noti, ATT_HANDLE_VALUE_NOTI);
-            PRINT("[4505] notify fail status=%d ack=%d reason=%d\r\n", status, pValue[0], pValue[1]);
+            RDSS_SEND_TEST_PRINT("[4505] notify fail status=%d ack=%d reason=%d\r\n", status, pValue[0], pValue[1]);
         }
         else
         {
-            PRINT("[4505] notify ok ack=%d reason=%d\r\n", pValue[0], pValue[1]);
+            RDSS_SEND_TEST_PRINT("[4505] notify ok ack=%d reason=%d\r\n", pValue[0], pValue[1]);
         }
         return status;
     }
-    PRINT("[4505] notify alloc fail ack=%d reason=%d\r\n", pValue[0], pValue[1]);
+    RDSS_SEND_TEST_PRINT("[4505] notify alloc fail ack=%d reason=%d\r\n", pValue[0], pValue[1]);
     return bleMemAllocError;
 }
 
@@ -1430,7 +1430,7 @@ static uint8_t peripheralRdssMsgRxNotify(uint8_t *pValue, uint16_t len)
     bStatus_t status;
     if(len > (peripheralMTU - 3))
     {
-        PRINT("Too large noti\n");
+        RDSS_SEND_TEST_PRINT("[4506] notify too large len=%d mtu=%d\r\n", len, peripheralMTU);
         return bleInvalidRange;
     }
     noti.len = len;
@@ -1442,9 +1442,21 @@ static uint8_t peripheralRdssMsgRxNotify(uint8_t *pValue, uint16_t len)
         if(status != SUCCESS)
         {
             GATT_bm_free((gattMsg_t *)&noti, ATT_HANDLE_VALUE_NOTI);
+            RDSS_SEND_TEST_PRINT("[4506] notify fail status=%d sender=%lu payload_len=%lu\r\n",
+                                 status, (unsigned long)Msg_rx.sender,
+                                 (unsigned long)Msg_rx.payload_len);
+        }
+        else
+        {
+            RDSS_SEND_TEST_PRINT("[4506] notify ok sender=%lu payload_len=%lu\r\n",
+                                 (unsigned long)Msg_rx.sender,
+                                 (unsigned long)Msg_rx.payload_len);
         }
         return status;
     }
+    RDSS_SEND_TEST_PRINT("[4506] notify alloc fail sender=%lu payload_len=%lu\r\n",
+                         (unsigned long)Msg_rx.sender,
+                         (unsigned long)Msg_rx.payload_len);
     return bleMemAllocError;
 }
 

@@ -42,8 +42,8 @@ def main():
     assert 'printf("GSV checksum warn' not in decode_c
     assert 'printf("ERROR\\r\\n")' not in decode_c
 
-    assert 'PRINT("\\r\\n[RDSS TX 4504]' in decode_c
-    assert 'PRINT("\\r\\n[RDSS ACK BDFKI]' in decode_c
+    assert 'RDSS_SEND_TEST_PRINT("\\r\\n[RDSS TX 4504]' in decode_c
+    assert 'RDSS_SEND_TEST_PRINT("\\r\\n[RDSS ACK BDFKI]' in decode_c
 
 
 if __name__ == "__main__":

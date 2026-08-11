@@ -75,7 +75,10 @@
  * ƒ¨»œ≈‰÷√÷µ
  */
 #ifndef SOS_TEST_ONLY_PRINT
-#define SOS_TEST_ONLY_PRINT                 TRUE
+#define SOS_TEST_ONLY_PRINT                 FALSE
+#endif
+#ifndef RDSS_SEND_TEST_ONLY_PRINT
+#define RDSS_SEND_TEST_ONLY_PRINT          TRUE
 #endif
 #ifndef BLE_MAC
 #define BLE_MAC                             FALSE

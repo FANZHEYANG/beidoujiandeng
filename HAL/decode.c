@@ -990,7 +990,7 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
             strcat(strCCMSG, check);
         }
 
-        PRINT("\r\n[RDSS TX 4504] dest=%s lf=%d encode=%d payload_len=%lu\r\n",
+        RDSS_SEND_TEST_PRINT("\r\n[RDSS TX 4504] dest=%s lf=%d encode=%d payload_len=%lu\r\n",
               ICcard, Msg_tx.lf, Msg_tx.encode, (unsigned long)Msg_tx.payload_len);
         
 		//生成异或校验字节，将$到*之间的所有字符串(不包括$和*)
@@ -1005,7 +1005,7 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
 		strcat(strCCMSG,"*");
 		strcat(strCCMSG,check);
 		strcat(strCCMSG,"\r\n");
-        PRINT("[RDSS TX 4504] cmd=%s", strCCMSG);
+        RDSS_SEND_TEST_PRINT("[RDSS TX 4504] cmd=%s", strCCMSG);
 
         RN_SW_Flag = FALSE;
         CLOSERN();
@@ -1126,15 +1126,15 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
                     Msg_rx.payload_len = Rdss_SanitizePayloadLen(Msg_rx.payload, j);
                     RD_msg_rx_dirty = 1;
 
-                    PRINT("\r\n[RDSS RX BDMXX] sender=%lu time=%02d:%02d:%02d encode=%d payload_len=%lu\r\n",
+                    RDSS_SEND_TEST_PRINT("\r\n[RDSS RX BDMXX] sender=%lu time=%02d:%02d:%02d encode=%d payload_len=%lu\r\n",
                           (unsigned long)Msg_rx.sender, Msg_rx.hour, Msg_rx.minute, Msg_rx.second,
                           Msg_rx.encode, (unsigned long)Msg_rx.payload_len);
-                    PRINT("[RDSS RX BDMXX] payload_hex=");
+                    RDSS_SEND_TEST_PRINT("[RDSS RX BDMXX] payload_hex=");
                     for(i=0; i<Msg_rx.payload_len; i++)
                     {
-                        PRINT("%02X ", Msg_rx.payload[i]);
+                        RDSS_SEND_TEST_PRINT("%02X ", Msg_rx.payload[i]);
                     }
-                    PRINT("\r\n");
+                    RDSS_SEND_TEST_PRINT("\r\n");
                     Pwr_OnRdssMessageReceived(Msg_rx.sender);
                 }
             }
@@ -1197,7 +1197,7 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
 			RD_result=strtok(NULL, delims);//失败原因
             Tx_ack.reason = atoi(RD_result);
             RD_tx_ack_dirty = 1;
-            PRINT("\r\n[RDSS ACK BDFKI] ack=%d reason=%d\r\n", Tx_ack.ack, Tx_ack.reason);
+            RDSS_SEND_TEST_PRINT("\r\n[RDSS ACK BDFKI] ack=%d reason=%d\r\n", Tx_ack.ack, Tx_ack.reason);
 			RD_result=strtok(NULL, delims);//剩余时间
             if(RD_result != NULL)
             {

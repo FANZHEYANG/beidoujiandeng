@@ -2997,12 +2997,12 @@ static bStatus_t rdssProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                     if(len < 12)
                     {
                         status = ATT_ERR_INVALID_VALUE_SIZE;
-                        PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE FAIL] len=%d, expect >= 12\r\n", len);
+                        RDSS_SEND_TEST_PRINT("\r\n[RDSS 4504 WRITE FAIL] len=%d, expect >= 12\r\n", len);
                     }
                 }
                 else {
                     status = ATT_ERR_ATTR_NOT_LONG;
-                    PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE FAIL] offset=%d not supported\r\n", offset);
+                    RDSS_SEND_TEST_PRINT("\r\n[RDSS 4504 WRITE FAIL] offset=%d not supported\r\n", offset);
                 }
 
                 if(status == SUCCESS)
@@ -3068,7 +3068,7 @@ static bStatus_t rdssProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                         memset(Tx_ack._unused, 0, sizeof(Tx_ack._unused));
                         RD_tx_ack_dirty = 1;
                         RD_txflag = false;
-                        PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE FAIL] payload_len=%lu accepted=%lu max=%d\r\n",
+                        RDSS_SEND_TEST_PRINT("\r\n[RDSS 4504 WRITE FAIL] payload_len=%lu accepted=%lu max=%d\r\n",
                                              (unsigned long)requested_payload_len,
                                              (unsigned long)Msg_tx.payload_len,
                                              RDSS_MSG_PAYLOAD_MAX);
@@ -3076,28 +3076,28 @@ static bStatus_t rdssProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
                     }
                     else
                     {
-                        PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE OK]\r\n");
-                        PROFILE_DEBUG_PRINTF("len=%d\r\n", len);
-                        PROFILE_DEBUG_PRINTF("lf=%d\r\n", Msg_tx.lf);
-                        PROFILE_DEBUG_PRINTF("encode=%d\r\n", Msg_tx.encode);
-                        PROFILE_DEBUG_PRINTF("generation=%d\r\n", Msg_tx.generation);
-                        PROFILE_DEBUG_PRINTF("reserved=%d\r\n", Msg_tx.reservied);
-                        PROFILE_DEBUG_PRINTF("dest_card=%lu\r\n", (unsigned long)Msg_tx.dest_card);
-                        PROFILE_DEBUG_PRINTF("payload_len=%lu\r\n", (unsigned long)Msg_tx.payload_len);
-                        PROFILE_DEBUG_PRINTF("payload_hex=");
+                        RDSS_SEND_TEST_PRINT("\r\n[RDSS 4504 WRITE OK]\r\n");
+                        RDSS_SEND_TEST_PRINT("len=%d\r\n", len);
+                        RDSS_SEND_TEST_PRINT("lf=%d\r\n", Msg_tx.lf);
+                        RDSS_SEND_TEST_PRINT("encode=%d\r\n", Msg_tx.encode);
+                        RDSS_SEND_TEST_PRINT("generation=%d\r\n", Msg_tx.generation);
+                        RDSS_SEND_TEST_PRINT("reserved=%d\r\n", Msg_tx.reservied);
+                        RDSS_SEND_TEST_PRINT("dest_card=%lu\r\n", (unsigned long)Msg_tx.dest_card);
+                        RDSS_SEND_TEST_PRINT("payload_len=%lu\r\n", (unsigned long)Msg_tx.payload_len);
+                        RDSS_SEND_TEST_PRINT("payload_hex=");
                         for(i = 0; i < Msg_tx.payload_len; i++)
                         {
-                            PROFILE_DEBUG_PRINTF("%02X ", Msg_tx.payload[i]);
+                            RDSS_SEND_TEST_PRINT("%02X ", Msg_tx.payload[i]);
                         }
-                        PROFILE_DEBUG_PRINTF("\r\n[RDSS 4504 WRITE END]\r\n");
+                        RDSS_SEND_TEST_PRINT("\r\n[RDSS 4504 WRITE END]\r\n");
 
                         Pwr_EnableRdssForSend();
                         RD_txflag = true;
-                        PROFILE_DEBUG_PRINTF("[RDSS 4504 WRITE] RD_txflag=%d, wait RDSS task send\r\n", RD_txflag);
+                        RDSS_SEND_TEST_PRINT("[RDSS 4504 WRITE] RD_txflag=%d, wait RDSS task send\r\n", RD_txflag);
                         notifyApp = RDSSPROFILE_CHAR4;
                     }
                 }
-                PROFILE_DEBUG_PRINTF("rdss_write\r\n");
+                RDSS_SEND_TEST_PRINT("rdss_write\r\n");
             break;
 
              case GATT_CLIENT_CHAR_CFG_UUID:

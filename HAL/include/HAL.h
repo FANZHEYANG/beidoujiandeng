@@ -31,6 +31,15 @@ extern "C" {
 #include "bq25601.h"
 #include "decode.h"	
 
+#if RDSS_SEND_TEST_ONLY_PRINT
+#define RDSS_SEND_TEST_PRINT(...) (printf)(__VA_ARGS__)
+#undef PRINT
+#define PRINT(...)
+#define printf(...)
+#else
+#define RDSS_SEND_TEST_PRINT(...) PRINT(__VA_ARGS__)
+#endif
+
 
 /* hal task Event */
 #define LED_BLINK_EVENT       0x0001
