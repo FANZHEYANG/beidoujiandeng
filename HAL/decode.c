@@ -974,12 +974,18 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
     //发送数据$CCMSG,1850000,3,2,78516D23313233*1F
 	if (RD_txflag==1)
 	{
+		uint8_t rdss_lf = Msg_tx.lf;
+
 		//RD_txflag = false;
+		if((rdss_lf != 2) && (rdss_lf != 3) && (rdss_lf != 5))
+		{
+			rdss_lf = 3;
+		}
 
 		//组织CCMSG的语句内容
 		strcpy(ICcard, DestIC);
 		//sprintf(strCCTXA,"$CCTXA,%s,1,2,A4", ICcard);//混合编码，最大发送77字节的用户内容，因为A4占用了一个字节
-		sprintf(strCCMSG,"$CCMSG,%s,%d,%d,", ICcard,Msg_tx.lf,Msg_tx.encode);//代码编码，最大发送78字节的用户内容
+		sprintf(strCCMSG,"$CCMSG,%s,%d,%d,", ICcard,rdss_lf,Msg_tx.encode);//代码编码，最大发送78字节的用户内容
 												
         // 只发送App写入0x4504的正文，不追加心率/血氧/步数/卡路里。
         Msg_tx.payload_len = Rdss_SanitizePayloadLen(Msg_tx.payload, (uint16_t)Msg_tx.payload_len);
@@ -990,8 +996,8 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
             strcat(strCCMSG, check);
         }
 
-        RDSS_SEND_TEST_PRINT("\r\n[RDSS TX 4504] dest=%s lf=%d encode=%d payload_len=%lu\r\n",
-              ICcard, Msg_tx.lf, Msg_tx.encode, (unsigned long)Msg_tx.payload_len);
+        RDSS_SEND_TEST_PRINT("\r\n[RDSS TX 4504] dest=%s app_lf=%d tx_lf=%d encode=%d payload_len=%lu\r\n",
+              ICcard, Msg_tx.lf, rdss_lf, Msg_tx.encode, (unsigned long)Msg_tx.payload_len);
         
 		//生成异或校验字节，将$到*之间的所有字符串(不包括$和*)
 		temp=0;
