@@ -54,7 +54,7 @@ all: Peripheral.elf secondary-outputs
 
 # Tool invocations
 Peripheral.elf: $(OBJS) $(USER_OBJS)
-	@	@	riscv-none-elf-gcc -march=rv32imc_zba_zbb_zbc_zbs_xw -mabi=ilp32 -mcmodel=medany -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common --param=highcode-gen-section-name=1  -g -T "E:\postgraduate\project\beidou_light\05 传递的资料\后续资料\CH584_SW\SRC\Ld\Link.ld" -nostartfiles -Xlinker --gc-sections -L../ -L"E:\postgraduate\project\beidou_light\05 传递的资料\后续资料\CH584_SW\BLE_all0818\LIB" -L"E:\postgraduate\project\beidou_light\05 传递的资料\后续资料\CH584_SW\SRC\StdPeriphDriver" -Xlinker --print-memory-usage -Wl,-Map,"Peripheral.map" --specs=nano.specs --specs=nosys.specs -o "Peripheral.elf" $(OBJS) $(USER_OBJS) $(LIBS)
+	@	@	riscv-none-elf-gcc -march=rv32imc_zba_zbb_zbc_zbs_xw -mabi=ilp32 -mcmodel=medany -msmall-data-limit=8 -mno-save-restore -Os -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -fno-common --param=highcode-gen-section-name=1  -g -T "E:\postgraduate\project\beidou_light\05 传递的资料\后续资料\CH584_SW\SRC\Ld\Link.ld" -nostartfiles -Xlinker --gc-sections -L../ -L"E:\postgraduate\project\beidou_light\05 传递的资料\后续资料\CH584_SW\BLE_all0307 (gnss和rdss实现）\LIB" -L"E:\postgraduate\project\beidou_light\05 传递的资料\后续资料\CH584_SW\SRC\StdPeriphDriver" -Xlinker --print-memory-usage -Wl,-Map,"Peripheral.map" --specs=nano.specs --specs=nosys.specs -o "Peripheral.elf" $(OBJS) $(USER_OBJS) $(LIBS)
 	@	@
 Peripheral.hex: Peripheral.elf
 	@	riscv-none-elf-objcopy -O ihex "Peripheral.elf"  "Peripheral.hex"

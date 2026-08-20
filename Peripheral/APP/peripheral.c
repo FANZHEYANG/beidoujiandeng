@@ -150,7 +150,7 @@ static uint8_t advertData[] = {
     // service UUID, to notify central devices what services are included
     // in this peripheral
     //服务UUID（告知中央设备自己支持的服务）
-    0x03,                  // length of this data,数据段长度（3字节 = 1字节类型 + 2字节UUID）
+    0x09,                  // length of this data,数据段长度（3字节 = 1字节类型 + 2字节UUID）
     GAP_ADTYPE_16BIT_MORE, // some of the UUID's, but not all,16位UUID（部分）
     LO_UINT16(SIMPLEPROFILE_SERV_UUID),// UUID低字节
     HI_UINT16(SIMPLEPROFILE_SERV_UUID), // UUID高字节
@@ -974,62 +974,63 @@ static void performPeriodicTask(void)
      gnssData2[0] = GGA.hour;
      gnssData2[1] = GGA.minute;
      gnssData2[2] = GGA.second;
-     gnssData2[3] = (uint8_t)(GGA.microseconds & 0x000000FF);
-     gnssData2[4] = (uint8_t)((GGA.microseconds & 0x0000FF00) >> 8);
-     gnssData2[5] = (uint8_t)((GGA.microseconds & 0x00FF0000) >> 16);
-     gnssData2[6] = (uint8_t)((GGA.microseconds & 0xFF000000) >> 24);
+     gnssData2[3] = 0x00;       // 对齐填充字节
+     gnssData2[4] = (uint8_t)(GGA.microseconds & 0x000000FF);
+     gnssData2[5] = (uint8_t)((GGA.microseconds & 0x0000FF00) >> 8);
+     gnssData2[6] = (uint8_t)((GGA.microseconds & 0x00FF0000) >> 16);
+     gnssData2[7] = (uint8_t)((GGA.microseconds & 0xFF000000) >> 24);
 
 
      float_to_bytes_memcpy(GGA.latitude, temp_bytes);
      for(i = 0; i < 4; i++)
      {
-         gnssData2[7 + i] = temp_bytes[i];
+         gnssData2[8 + i] = temp_bytes[i];
      }
 
 
      float_to_bytes_memcpy(GGA.longitude, temp_bytes);
      for(i = 0; i < 4; i++)
      {
-         gnssData2[11 + i] = temp_bytes[i];
+         gnssData2[12 + i] = temp_bytes[i];
      }
 
-     gnssData2[15] = (uint8_t)(GGA.fix_quality & 0x000000FF);
-     gnssData2[16] = (uint8_t)((GGA.fix_quality & 0x0000FF00) >> 8);
-     gnssData2[17] = (uint8_t)((GGA.fix_quality & 0x00FF0000) >> 16);
-     gnssData2[18] = (uint8_t)((GGA.fix_quality & 0xFF000000) >> 24);
+     gnssData2[16] = (uint8_t)(GGA.fix_quality & 0x000000FF);
+     gnssData2[17] = (uint8_t)((GGA.fix_quality & 0x0000FF00) >> 8);
+     gnssData2[18] = (uint8_t)((GGA.fix_quality & 0x00FF0000) >> 16);
+     gnssData2[19] = (uint8_t)((GGA.fix_quality & 0xFF000000) >> 24);
 
 
-     gnssData2[19] = (uint8_t)(GGA.satellites_tracked & 0x000000FF);
-     gnssData2[20] = (uint8_t)((GGA.satellites_tracked & 0x0000FF00) >> 8);
-     gnssData2[21] = (uint8_t)((GGA.satellites_tracked & 0x00FF0000) >> 16);
-     gnssData2[22] = (uint8_t)((GGA.satellites_tracked & 0xFF000000) >> 24);
+     gnssData2[20] = (uint8_t)(GGA.satellites_tracked & 0x000000FF);
+     gnssData2[21] = (uint8_t)((GGA.satellites_tracked & 0x0000FF00) >> 8);
+     gnssData2[22] = (uint8_t)((GGA.satellites_tracked & 0x00FF0000) >> 16);
+     gnssData2[23] = (uint8_t)((GGA.satellites_tracked & 0xFF000000) >> 24);
 
 
      float_to_bytes_memcpy(GGA.hdop, temp_bytes);
      for(i = 0; i < 4; i++)
      {
-         gnssData2[23 + i] = temp_bytes[i];
+         gnssData2[24 + i] = temp_bytes[i];
      }
 
 
      float_to_bytes_memcpy(GGA.altitude, temp_bytes);
      for(i = 0; i < 4; i++)
      {
-         gnssData2[27 + i] = temp_bytes[i];
+         gnssData2[28 + i] = temp_bytes[i];
      }
 
 
      float_to_bytes_memcpy(GGA.height, temp_bytes);
      for(i = 0; i < 4; i++)
      {
-         gnssData2[31 + i] = temp_bytes[i];
+         gnssData2[32 + i] = temp_bytes[i];
      }
 
 
      float_to_bytes_memcpy(GGA.dgps_age, temp_bytes);
      for(i = 0; i < 4; i++)
      {
-         gnssData2[35 + i] = temp_bytes[i];
+         gnssData2[36 + i] = temp_bytes[i];
      }
 
 

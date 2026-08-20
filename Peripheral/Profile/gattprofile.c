@@ -2606,12 +2606,11 @@ static bStatus_t cardProfile_WriteAttrCB(uint16_t connHandle, gattAttribute_t *p
       return ( status );
 }
 
-void float_to_bytes_memcpy(float value, uint8_t* bytes) {
-    // 先将float转换为uint32_t
+void float_to_bytes_memcpy(float value, uint8_t* bytes)
+{
     uint32_t temp;
     memcpy(&temp, &value, sizeof(float));
 
-    // 转换为大端序
     bytes[0] = (temp >> 24) & 0xFF;
     bytes[1] = (temp >> 16) & 0xFF;
     bytes[2] = (temp >> 8) & 0xFF;
@@ -2672,47 +2671,48 @@ static bStatus_t gnssProfile_ReadAttrCB(uint16_t connHandle, gattAttribute_t *pA
                 read_data2[0] = GGA.hour;
                 read_data2[1] = GGA.minute;
                 read_data2[2] = GGA.second;
-                read_data2[3] =(uint8_t) (GGA.microseconds  & 0x000000FF);
-                read_data2[4] =(uint8_t) ((GGA.microseconds & 0x0000FF00)>>8);
-                read_data2[5] =(uint8_t) ((GGA.microseconds & 0x00FF0000)>>16);
-                read_data2[6] =(uint8_t) ((GGA.microseconds & 0xFF000000)>>24);
+                read_data2[3] = 0x00;
+                read_data2[4] =(uint8_t) (GGA.microseconds  & 0x000000FF);
+                read_data2[5] =(uint8_t) ((GGA.microseconds & 0x0000FF00)>>8);
+                read_data2[6] =(uint8_t) ((GGA.microseconds & 0x00FF0000)>>16);
+                read_data2[7] =(uint8_t) ((GGA.microseconds & 0xFF000000)>>24);
                 float_to_bytes_memcpy(GGA.latitude, temp_bytes);
                 for(i=0; i<4; i++)
                 {
-                    read_data2[7+i] = temp_bytes[i];
+                    read_data2[8+i] = temp_bytes[i];
                 }
                 float_to_bytes_memcpy(GGA.longitude, temp_bytes);
                 for(i=0; i<4; i++)
                 {
-                    read_data2[11+i] = temp_bytes[i];
+                    read_data2[12+i] = temp_bytes[i];
                 }
-                read_data2[15] =(uint8_t) (GGA.fix_quality  & 0x000000FF);
-                read_data2[16] =(uint8_t) ((GGA.fix_quality & 0x0000FF00)>>8);
-                read_data2[17] =(uint8_t) ((GGA.fix_quality & 0x00FF0000)>>16);
-                read_data2[18] =(uint8_t) ((GGA.fix_quality & 0xFF000000)>>24);
-                read_data2[19] =(uint8_t) (GGA.satellites_tracked  & 0x000000FF);
-                read_data2[20] =(uint8_t) ((GGA.satellites_tracked & 0x0000FF00)>>8);
-                read_data2[21] =(uint8_t) ((GGA.satellites_tracked & 0x00FF0000)>>16);
-                read_data2[22] =(uint8_t) ((GGA.satellites_tracked & 0xFF000000)>>24);
+                read_data2[16] =(uint8_t) (GGA.fix_quality  & 0x000000FF);
+                read_data2[17] =(uint8_t) ((GGA.fix_quality & 0x0000FF00)>>8);
+                read_data2[18] =(uint8_t) ((GGA.fix_quality & 0x00FF0000)>>16);
+                read_data2[19] =(uint8_t) ((GGA.fix_quality & 0xFF000000)>>24);
+                read_data2[20] =(uint8_t) (GGA.satellites_tracked  & 0x000000FF);
+                read_data2[21] =(uint8_t) ((GGA.satellites_tracked & 0x0000FF00)>>8);
+                read_data2[22] =(uint8_t) ((GGA.satellites_tracked & 0x00FF0000)>>16);
+                read_data2[23] =(uint8_t) ((GGA.satellites_tracked & 0xFF000000)>>24);
                 float_to_bytes_memcpy(GGA.hdop, temp_bytes);
                 for(i=0; i<4; i++)
                 {
-                    read_data2[23+i] = temp_bytes[i];
+                    read_data2[24+i] = temp_bytes[i];
                 }
                 float_to_bytes_memcpy(GGA.altitude, temp_bytes);
                 for(i=0; i<4; i++)
                 {
-                    read_data2[27+i] = temp_bytes[i];
+                    read_data2[28+i] = temp_bytes[i];
                 }
                 float_to_bytes_memcpy(GGA.height, temp_bytes);
                 for(i=0; i<4; i++)
                 {
-                    read_data2[31+i] = temp_bytes[i];
+                    read_data2[32+i] = temp_bytes[i];
                 }
                 float_to_bytes_memcpy(GGA.dgps_age, temp_bytes);
                 for(i=0; i<4; i++)
                 {
-                    read_data2[35+i] = temp_bytes[i];
+                    read_data2[36+i] = temp_bytes[i];
                 }
 
                 tmos_memcpy(pValue, read_data2, *pLen);
