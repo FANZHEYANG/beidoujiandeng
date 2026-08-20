@@ -104,6 +104,8 @@ uint8_t USART_RX_BUF1[USART_REC_LEN];     //接收缓冲,最大USART_REC_LEN个字节.
 #define RD_FRAME_QUEUE_SIZE 4
 static uint8_t RD_FRAME_QUEUE[RD_FRAME_QUEUE_SIZE][USART0_REC_LEN];
 static uint16_t RD_FRAME_LEN[RD_FRAME_QUEUE_SIZE];
+static uint32_t RD_FRAME_SEQUENCE[RD_FRAME_QUEUE_SIZE];
+static volatile uint32_t rd_frame_sequence = 0;
 static volatile uint8_t RD_FRAME_WRITE = 0;
 static volatile uint8_t RD_FRAME_READ = 0;
 static volatile uint8_t RD_FRAME_COUNT = 0;
@@ -111,6 +113,18 @@ static uint8_t RD_PARSE_BUF[USART0_REC_LEN];
 
 static uint8_t RNSS_TaskID; // Task ID for RNSS processing
 static uint8_t RDSS_TaskID; // Task ID for RDSS processing
+
+#define RDSS_RN_RESTORE_DELAY MS1_TO_SYSTEM_TIME(800)
+#define RDSS_SEND_ACK_TIMEOUT MS1_TO_SYSTEM_TIME(15000)
+#define RDSS_LATE_ACK_GUARD MS1_TO_SYSTEM_TIME(5000)
+#define RDSS_SEND_IDLE 0
+#define RDSS_SEND_WAIT_ACK 1
+#define RDSS_SEND_WAIT_RESTORE 2
+#define RDSS_SEND_COOLDOWN 3
+
+static uint8_t rdss_send_state = RDSS_SEND_IDLE;
+static uint8_t rdss_restore_cooldown = 0;
+static uint32_t rdss_ack_min_sequence = 0;
 
 // 计算NMEA校验和
 unsigned char calculate_checksum(const char *sentence) {
@@ -566,6 +580,12 @@ void UART0_IRQHandler(void)
                     if(RD_FRAME_COUNT < RD_FRAME_QUEUE_SIZE)
                     {
                         tmos_memcpy(RD_FRAME_QUEUE[RD_FRAME_WRITE], USART_RX_BUF0, point0 + 1);
+                        rd_frame_sequence++;
+                        if(rd_frame_sequence == 0)
+                        {
+                            rd_frame_sequence = 1;
+                        }
+                        RD_FRAME_SEQUENCE[RD_FRAME_WRITE] = rd_frame_sequence;
                         RD_FRAME_LEN[RD_FRAME_WRITE] = point0;
                         RD_FRAME_WRITE++;
                         if(RD_FRAME_WRITE >= RD_FRAME_QUEUE_SIZE)
@@ -955,6 +975,79 @@ static void Rdss_ClearMsgRx(void)
 {
     memset(&Msg_rx, 0, sizeof(Msg_rx));
 }
+
+static void Rdss_QueueNextSend(void)
+{
+    if(Pwr_IsSoftPowerOff() != FALSE)
+    {
+        RD_txflag = false;
+        return;
+    }
+
+    if(RD_txflag != 0)
+    {
+        tmos_set_event(RDSS_TaskID, rdss_evt);
+    }
+}
+
+static void Rdss_RestoreNow(void)
+{
+    uint8_t start_cooldown = rdss_restore_cooldown;
+
+    rdss_restore_cooldown = 0;
+    Pwr_RestoreOutputsAfterRdssSend();
+    if(Pwr_IsSoftPowerOff() == FALSE)
+    {
+        RN_SW_Flag = TRUE;
+        OPENRN();
+    }
+    RDSS_SEND_TEST_PRINT("[RDSS TX RESTORE] complete rn=%d\r\n", RN_SW_Flag);
+
+    if(Pwr_IsSoftPowerOff() != FALSE)
+    {
+        rdss_send_state = RDSS_SEND_IDLE;
+        RD_txflag = false;
+        return;
+    }
+
+    if(start_cooldown != 0)
+    {
+        rdss_send_state = RDSS_SEND_COOLDOWN;
+        RDSS_SEND_TEST_PRINT("[RDSS TX GUARD] wait for late BDFKI\r\n");
+        if(tmos_start_task(RDSS_TaskID, rdss_restore_evt,
+                           RDSS_LATE_ACK_GUARD) == FALSE)
+        {
+            RDSS_SEND_TEST_PRINT("[RDSS TX GUARD] timer unavailable\r\n");
+            rdss_send_state = RDSS_SEND_IDLE;
+            RD_txflag = false;
+        }
+        return;
+    }
+
+    rdss_send_state = RDSS_SEND_IDLE;
+    Rdss_QueueNextSend();
+}
+
+static void Rdss_ScheduleRestore(uint16_t delay_ticks, const char *source,
+                                 uint8_t start_cooldown)
+{
+    if(rdss_send_state != RDSS_SEND_WAIT_ACK)
+    {
+        return;
+    }
+
+    rdss_restore_cooldown = start_cooldown;
+    rdss_send_state = RDSS_SEND_WAIT_RESTORE;
+    tmos_stop_task(RDSS_TaskID, rdss_send_timeout_evt);
+    tmos_stop_task(RDSS_TaskID, rdss_restore_evt);
+    RDSS_SEND_TEST_PRINT("[RDSS TX RESTORE] source=%s delay_ticks=%u\r\n",
+                         source, (unsigned int)delay_ticks);
+    if(tmos_start_task(RDSS_TaskID, rdss_restore_evt, delay_ticks) == FALSE)
+    {
+        RDSS_SEND_TEST_PRINT("[RDSS TX RESTORE] timer unavailable, restore now\r\n");
+        Rdss_RestoreNow();
+    }
+}
 //RDSS短报文信息采集事件
 uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
 {
@@ -969,10 +1062,15 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
     
     if(events & rdss_evt)
     {
+        if(Pwr_IsSoftPowerOff() != FALSE)
+        {
+            RD_txflag = false;
+        }
     
     //把COM口输入的数据通过北斗短报文发送出去，接收方默认是LocalIC
     //发送数据$CCMSG,1850000,3,2,78516D23313233*1F
-	if (RD_txflag==1)
+	if ((RD_txflag==1) && (rdss_send_state == RDSS_SEND_IDLE) &&
+        (Pwr_IsSoftPowerOff() == FALSE))
 	{
 		uint8_t rdss_lf = Msg_tx.lf;
 
@@ -1015,18 +1113,38 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
 
         RN_SW_Flag = FALSE;
         CLOSERN();
-
-
-        HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
-
-        CLOSEAUDIO();
+        Pwr_SuspendOutputsForRdssSend();
         
         DelayMs(2000);
 
-		UART0_SendString((uint8_t *)strCCMSG, strlen((char *)strCCMSG));
-		RD_txflag = false;
-        RN_SW_Flag = TRUE;
-        OPENRN();
+        rdss_restore_cooldown = 0;
+        rdss_send_state = RDSS_SEND_WAIT_ACK;
+        tmos_stop_task(RDSS_TaskID, rdss_restore_evt);
+        tmos_stop_task(RDSS_TaskID, rdss_send_timeout_evt);
+
+        PFIC_DisableIRQ(UART0_IRQn);
+        point0 = 0;
+        while(R8_UART0_RFC)
+        {
+            UART0_RecvByte();
+        }
+        rdss_ack_min_sequence = rd_frame_sequence + 1;
+        if(rdss_ack_min_sequence == 0)
+        {
+            rdss_ack_min_sequence = 1;
+        }
+        UART0_SendString((uint8_t *)strCCMSG, strlen((char *)strCCMSG));
+        PFIC_EnableIRQ(UART0_IRQn);
+
+        RD_txflag = false;
+        RDSS_SEND_TEST_PRINT("[RDSS TX WAIT] waiting for MSG BDFKI min_seq=%lu\r\n",
+                             (unsigned long)rdss_ack_min_sequence);
+        if(tmos_start_task(RDSS_TaskID, rdss_send_timeout_evt,
+                           RDSS_SEND_ACK_TIMEOUT) == FALSE)
+        {
+            RDSS_SEND_TEST_PRINT("[RDSS TX WAIT] timeout timer unavailable\r\n");
+            Rdss_ScheduleRestore(1, "timeout_timer_fail", 1);
+        }
 				
     }
 
@@ -1034,9 +1152,11 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
      	while (RD_FRAME_COUNT > 0)
 	{
         uint16_t rd_frame_len;
+        uint32_t rd_frame_seq;
 
         PFIC_DisableIRQ(UART0_IRQn);
         rd_frame_len = RD_FRAME_LEN[RD_FRAME_READ];
+        rd_frame_seq = RD_FRAME_SEQUENCE[RD_FRAME_READ];
         tmos_memcpy(RD_PARSE_BUF, RD_FRAME_QUEUE[RD_FRAME_READ], rd_frame_len + 1);
         RD_FRAME_READ++;
         if(RD_FRAME_READ >= RD_FRAME_QUEUE_SIZE)
@@ -1186,28 +1306,83 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
         }
 		//FKI回复,反馈信息
 		//$BDFKI,111626,LOC,Y,0,0000*44
-		else if(strstr((char *)RD_PARSE_BUF,"$BDFKI"))//入站信息成功与否反馈
+		else if(strstr((char *)RD_PARSE_BUF,"$BDFKI"))
 		{
+            uint8_t is_msg_ack = 0;
+            uint8_t ack_valid = 0;
+            uint8_t ack_matches_pending = 0;
+            uint8_t parsed_ack = false;
+            uint8_t parsed_reason = 0;
+            uint8_t count_down_valid = 0;
+            unsigned int parsed_count_down = 0;
+
 			p1=strstr((char *)RD_PARSE_BUF,"$BDFKI");
 			RD_result=strtok(p1, delims);//$BDFKI
-			RD_result=strtok(NULL, delims);//指令执行时间：北京时
-			RD_result=strtok(NULL, delims);//入站发射类型
-			RD_result=strtok(NULL, delims);//发射情况 Y发射成功 N发射失败
-			if(strcmp(RD_result,"Y")==0 ) 
-			{
-				Tx_ack.ack = true;
-				Tx_ack.reason = 0;
-			}
-            if(strcmp(RD_result,"N")==0 ) 
-			    Tx_ack.ack = false;
-			RD_result=strtok(NULL, delims);//失败原因
-            Tx_ack.reason = atoi(RD_result);
-            RD_tx_ack_dirty = 1;
-            RDSS_SEND_TEST_PRINT("\r\n[RDSS ACK BDFKI] ack=%d reason=%d\r\n", Tx_ack.ack, Tx_ack.reason);
-			RD_result=strtok(NULL, delims);//剩余时间
+			RD_result=strtok(NULL, delims);// command time
+			RD_result=strtok(NULL, delims);// transmission type
+            if(RD_result == NULL)
+            {
+                continue;
+            }
+            if(strcmp(RD_result,"MSG")==0)
+            {
+                is_msg_ack = 1;
+            }
+
+			RD_result=strtok(NULL, delims);// transmission result
+            if(RD_result == NULL)
+            {
+                continue;
+            }
+            if(strcmp(RD_result,"Y")==0)
+            {
+				parsed_ack = true;
+				parsed_reason = 0;
+                ack_valid = 1;
+            }
+            else if(strcmp(RD_result,"N")==0)
+            {
+                parsed_ack = false;
+                ack_valid = 1;
+            }
+
+			RD_result=strtok(NULL, delims);// failure reason
             if(RD_result != NULL)
             {
-                frequency_count_down = atoi(RD_result);
+                parsed_reason = (uint8_t)atoi(RD_result);
+            }
+            else if(parsed_ack == false)
+            {
+                ack_valid = 0;
+            }
+
+
+			RD_result=strtok(NULL, delims);// remaining time
+            if(RD_result != NULL)
+            {
+                parsed_count_down = (unsigned int)atoi(RD_result);
+                count_down_valid = 1;
+            }
+
+            if(ack_valid && is_msg_ack &&
+               (rdss_send_state == RDSS_SEND_WAIT_ACK) &&
+               (rd_frame_seq >= rdss_ack_min_sequence))
+            {
+                ack_matches_pending = 1;
+            }
+
+            if(ack_matches_pending)
+            {
+                Tx_ack.ack = parsed_ack;
+                Tx_ack.reason = parsed_reason;
+                if(count_down_valid)
+                {
+                    frequency_count_down = parsed_count_down;
+                }
+                RD_tx_ack_dirty = 1;
+                RDSS_SEND_TEST_PRINT("\r\n[RDSS ACK BDFKI] ack=%d reason=%d\r\n",
+                                     Tx_ack.ack, Tx_ack.reason);
+                Rdss_ScheduleRestore(RDSS_RN_RESTORE_DELAY, "ack", 0);
             }
 		}
 		//查询模块发送频度倒计时,CCTTC
@@ -1275,8 +1450,35 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
         return (events ^ rdss_evt);
     }
 
+    if(events & rdss_send_timeout_evt)
+    {
+        if(rdss_send_state == RDSS_SEND_WAIT_ACK)
+        {
+            RDSS_SEND_TEST_PRINT("[RDSS TX TIMEOUT] no MSG BDFKI\r\n");
+            Rdss_ScheduleRestore(1, "timeout", 1);
+        }
+        return (events ^ rdss_send_timeout_evt);
+    }
+
+    if(events & rdss_restore_evt)
+    {
+        if(rdss_send_state == RDSS_SEND_WAIT_RESTORE)
+        {
+            Rdss_RestoreNow();
+        }
+        else if(rdss_send_state == RDSS_SEND_COOLDOWN)
+        {
+            rdss_send_state = RDSS_SEND_IDLE;
+            RDSS_SEND_TEST_PRINT("[RDSS TX GUARD] complete\r\n");
+            Rdss_QueueNextSend();
+        }
+        return (events ^ rdss_restore_evt);
+    }
+
 	if(events & rdss_tx_evt)
     {
+        if(rdss_send_state == RDSS_SEND_IDLE)
+        {
 	    //PRINT("\r\n[UART0 TX] send CCSIM\r\n");
 	    //PRINT("%s", strCCSIM);
 	    UART0_SendString((uint8_t *)strCCSIM, strlen((char *)strCCSIM));//读取卡信息
@@ -1287,6 +1489,7 @@ uint16_t RDSS_ProcessEvent(uint8_t task_id, uint16_t events)
         //？频度倒计时查询啥时候进行的条件需要明确一下，发送短报文时？
 		UART0_SendString((uint8_t *)strCCTTC, strlen(strCCTTC));//频度倒计时查询
 
+        }
 	    tmos_start_task(RDSS_TaskID,rdss_tx_evt,1600*15);//tmosTimer具体是 1600 = 1s，1s采集间隔
         return (events ^ rdss_tx_evt);
 	}

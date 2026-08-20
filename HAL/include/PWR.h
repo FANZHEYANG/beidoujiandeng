@@ -50,6 +50,9 @@ extern void CLOSEAUDIO(void);
 //RDSS
 extern void OPENRD(void);
 extern void Pwr_EnableRdssForSend(void);
+extern void Pwr_SuspendOutputsForRdssSend(void);
+extern void Pwr_RestoreOutputsAfterRdssSend(void);
+extern BOOL Pwr_IsSoftPowerOff(void);
 extern void CLOSERD(void);
 //CM112B RNSS
 extern void OPENRN(void);

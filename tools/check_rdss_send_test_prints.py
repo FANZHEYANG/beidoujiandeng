@@ -58,15 +58,19 @@ def main():
     rdss_process = decode_c[rdss_start:rdss_end]
     for label in (
         "[RDSS TX 4504]",
+        "[RDSS TX WAIT]",
+        "[RDSS TX TIMEOUT]",
         "[RDSS ACK BDFKI]",
         "[RDSS RX BDMXX]",
     ):
         assert label in rdss_process
-    assert rdss_process.count("RDSS_SEND_TEST_PRINT") == 7
-    assert decode_c.count("RDSS_SEND_TEST_PRINT") == 7
+    assert "[RDSS TX RESTORE]" in decode_c
+    assert "[RDSS TX GUARD]" in decode_c
+    assert rdss_process.count("RDSS_SEND_TEST_PRINT") == 11
+    assert decode_c.count("RDSS_SEND_TEST_PRINT") == 16
     assert not re.search(
-        r'(?m)^\s*PRINT\s*\("(?:\\r\\n)?\[RDSS (?:TX 4504|ACK BDFKI|RX BDMXX)\]',
-        rdss_process,
+        r'(?m)^\s*PRINT\s*\("(?:\\r\\n)?\[RDSS (?:TX 4504|TX WAIT|TX TIMEOUT|TX RESTORE|TX GUARD|ACK BDFKI|RX BDMXX)\]',
+        decode_c,
     )
 
     notify_4505 = function_definition(

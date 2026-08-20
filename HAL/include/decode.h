@@ -21,6 +21,8 @@ extern uint8_t  USART_RX_BUF1_GSV[USART_REC_LEN_GSV];  //接收缓冲,最大USART_REC_
 //#define rnss_rx_evt               0x0002  
 #define rdss_evt                  0x0002  
 #define rdss_tx_evt               0x0004
+#define rdss_restore_evt          0x0008
+#define rdss_send_timeout_evt     0x0010
 
 #define false 0
 #define true 1

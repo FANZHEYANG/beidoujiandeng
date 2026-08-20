@@ -86,10 +86,19 @@ def main():
         decode_c.index("uint16_t RDSS_ProcessEvent"):
         decode_c.index("void RDSS_init")
     ]
-    rdss_tx_start = rdss_process.index("if (RD_txflag==1)")
+    rdss_tx_start = rdss_process.index("if ((RD_txflag==1)")
     rdss_tx_block = rdss_process[
         rdss_tx_start:
         rdss_process.index("while (RD_FRAME_COUNT > 0)", rdss_tx_start)
+    ]
+    rdss_restore_start = rdss_process.index("if(events & rdss_restore_evt)")
+    rdss_restore_block = rdss_process[
+        rdss_restore_start:
+        rdss_process.index("if(events & rdss_tx_evt)", rdss_restore_start)
+    ]
+    rdss_restore_now = decode_c[
+        decode_c.index("static void Rdss_RestoreNow"):
+        decode_c.index("static void Rdss_ScheduleRestore")
     ]
     rdss_write_4504 = gattprofile_c[
         gattprofile_c.index("case RDSSPROFILE_CHAR4_UUID"):
@@ -252,12 +261,15 @@ def main():
     assert "Msg_tx.payload_len = Rdss_SanitizePayloadLen" in rdss_process, "DM229 transmit path must keep payload on a safe boundary"
     assert "RN_SW_Flag = FALSE;" in rdss_tx_block, "DM229 transmit path must turn RNSS off before sending"
     assert "CLOSERN();" in rdss_tx_block, "DM229 transmit path must physically close RNSS before sending"
-    assert "RN_SW_Flag = TRUE;" in rdss_tx_block, "DM229 transmit path must restore RNSS after sending"
-    assert "OPENRN();" in rdss_tx_block, "DM229 transmit path must physically reopen RNSS after sending"
+    assert "RN_SW_Flag = TRUE;" not in rdss_tx_block, "DM229 transmit path must wait for BDFKI before restoring RNSS"
+    assert "OPENRN();" not in rdss_tx_block, "DM229 transmit path must not reopen RNSS immediately after UART write"
+    assert "Rdss_RestoreNow();" in rdss_restore_block, "RDSS restore event must call the centralized restore helper"
+    assert "RN_SW_Flag = TRUE;" in rdss_restore_now, "RDSS restore helper must restore RNSS state"
+    assert "OPENRN();" in rdss_restore_now, "RDSS restore helper must physically reopen RNSS"
+    assert "Pwr_RestoreOutputsAfterRdssSend();" in rdss_restore_now, "RDSS restore helper must restore audio and LEDs"
     rn_close_pos = rdss_tx_block.index("RN_SW_Flag = FALSE;")
     rd_send_pos = rdss_tx_block.index("UART0_SendString")
-    rn_open_pos = rdss_tx_block.index("RN_SW_Flag = TRUE;")
-    assert rn_close_pos < rd_send_pos < rn_open_pos, "RNSS must close before DM229 send and reopen after send"
+    assert rn_close_pos < rd_send_pos, "RNSS must close before DM229 send"
     assert "Rdss_ClearMsgRx();" in rdss_process, "BDMXX parsing must clear stale inbound SMS fields"
     assert "RD_msg_rx_dirty = 1;" in rdss_process, "new BDMXX messages must mark 4506 dirty"
     assert "j<RDSS_MSG_PAYLOAD_MAX" in rdss_process, "BDMXX payload copied to APP must stay within 4506 payload capacity"

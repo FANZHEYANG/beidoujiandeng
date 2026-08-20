@@ -42,7 +42,7 @@ static uint8_t Bat_TaskID; // Task ID for BAT processing
 #define WATER_DETECT_PERIOD MS1_TO_SYSTEM_TIME(200)
 #define WATER_ADC_CHANNEL 2
 #define WATER_ADC_SAMPLE_COUNT 10
-#define WATER_SHORT_THRESHOLD_MV 2000
+#define WATER_SHORT_THRESHOLD_MV 500
 #define WATER_SHORT_CONFIRM_COUNT 3
 #define WATER_CLEAR_CONFIRM_COUNT 5
 
@@ -85,6 +85,9 @@ static uint8_t led_flash_enable = 0;
 static uint8_t manual_flash_enable = 0;
 static uint8_t sos_flash_enable = 0;
 static uint8_t water_flash_enable = 0;
+static uint8_t rdss_output_suspended = 0;
+static uint8_t rdss_saved_led_state = 0;
+static uint8_t rdss_led_flash_was_enabled = 0;
 static uint8_t water_short_active = 0;
 static uint8_t water_short_count = 0;
 static uint8_t water_clear_count = 0;
@@ -745,6 +748,58 @@ void CLOSEAUDIO(void)
 	GPIOB_ResetBits(GPIO_Pin_16);
 }
 
+BOOL Pwr_IsSoftPowerOff(void)
+{
+    return (soft_power_off != 0) ? TRUE : FALSE;
+}
+
+void Pwr_SuspendOutputsForRdssSend(void)
+{
+    if((rdss_output_suspended != 0) || (soft_power_off != 0))
+    {
+        return;
+    }
+
+    rdss_saved_led_state = HalLedGetState();
+    rdss_led_flash_was_enabled = led_flash_enable;
+    rdss_output_suspended = 1;
+    HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
+    CLOSEAUDIO();
+}
+
+void Pwr_RestoreOutputsAfterRdssSend(void)
+{
+    uint8_t saved_led_state;
+    uint8_t flash_was_enabled;
+
+    if(rdss_output_suspended == 0)
+    {
+        return;
+    }
+
+    saved_led_state = rdss_saved_led_state;
+    flash_was_enabled = rdss_led_flash_was_enabled;
+    rdss_saved_led_state = 0;
+    rdss_led_flash_was_enabled = 0;
+    rdss_output_suspended = 0;
+    HalLedOnOff(HAL_LED_ALL, HAL_LED_MODE_OFF);
+
+    if(soft_power_off != 0)
+    {
+        return;
+    }
+
+    OPENAUDIO();
+    if(led_flash_enable)
+    {
+        UpdateLedFlash();
+    }
+    else if((flash_was_enabled == 0) && (saved_led_state != 0))
+    {
+        HalLedOnOff(saved_led_state, HAL_LED_MODE_ON);
+    }
+}
+
 void OPENRD(void)
 {
 	GPIOB_SetBits(GPIO_Pin_3);// +3.7V_DM_EN
@@ -855,6 +910,7 @@ static void SoftPowerOff(void)
     }
 
     soft_power_off = 1;
+    RD_txflag = false;
     Pwr_ClearVoiceQueue();
     voice_bat_last_req_time = 0;
     key1_irq_pending = 0;
@@ -1006,7 +1062,7 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
             Pwr_StopSosAlarm(SOS_EXIT_LONG_PRESS);
         }
 
-        if(Pwr_DequeueVoiceText(voice_text))
+        if((rdss_output_suspended == 0) && Pwr_DequeueVoiceText(voice_text))
         {
             OPENAUDIO();
             VOICE_DEBUG_PRINT("[VOICE] play %s\r\n", voice_text);
@@ -1146,7 +1202,7 @@ uint16_t Pwr_ProcessEvent(uint8_t task_id, uint16_t events)
             }
         }
 
-        if(led_flash_enable)
+        if(led_flash_enable && (rdss_output_suspended == 0))
         {
             UpdateLedFlash();
         }
